@@ -1,12 +1,13 @@
+use dotenv::dotenv;
+use sdk::auth::Authentication;
 use sdk::auth::Client;
 use uuid::Uuid;
 
-use dotenv::dotenv;
-
 #[derive(serde::Deserialize, Debug)]
 struct Config {
-    certificate_id: Uuid,
+    client_id: String,
     client_secret: Uuid,
+    auth_server_uri: String,
 }
 
 impl Config {
@@ -20,7 +21,10 @@ impl Config {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::read()?;
-    let client = Client::new(config.certificate_id, config.client_secret);
-    // sdk::Authentication::new();
+    let client = Client::new(config.client_id, config.client_secret);
+    let access_token = Authentication::new(config.auth_server_uri)
+        .unwrap()
+        .auth(client)
+        .await?;
     Ok(())
 }

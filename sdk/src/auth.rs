@@ -1,9 +1,9 @@
-use reqwest::multipart::Form;
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use url::Url;
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub struct Authentication {
     auth_server: Url,
 }
@@ -28,16 +28,17 @@ impl Authentication {
     }
 }
 
+#[derive(Debug)]
 pub struct Client {
-    /// kid
-    id: Uuid,
+    /// client id
+    id: String,
     /// This secret is a [`Uuid`], but the [`Uuid`] type is not compatible with [`Secret`].
     /// So we treat it as a [`String`]
     secret: Secret<String>,
 }
 
 impl Client {
-    pub fn new(id: Uuid, secret: Uuid) -> Self {
+    pub fn new(id: String, secret: Uuid) -> Self {
         Self {
             id,
             secret: Secret::new(secret.to_string()),
@@ -45,20 +46,22 @@ impl Client {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct AccessToken {
     access_token: String,
     expires_in: u32,
 }
 
 impl Authentication {
-    fn form(client: Client) -> Form {
+    fn form(client: Client) -> serde_json::Value {
         let client_secret = client.secret.expose_secret().clone();
-        Form::new()
-            .text("scope", "paydirect")
-            .text("grant_type", "client_credentials")
-            .text("client_id", client.id.to_string())
-            .text("client_secret", client_secret)
+
+        serde_json::json!({
+            "scope": "paydirect",
+            "grant_type": "client_credentials",
+            "client_id": client.id,
+            "client_secret": client_secret,
+        })
     }
 
     pub async fn auth(&self, client: Client) -> Result<AccessToken, reqwest::Error> {
@@ -66,7 +69,7 @@ impl Authentication {
         let form = Self::form(client);
         http_client
             .post(self.connect_token_endpoint())
-            .multipart(form)
+            .form(&form)
             .send()
             .await?
             .json::<AccessToken>()
