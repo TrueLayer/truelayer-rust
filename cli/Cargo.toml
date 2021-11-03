@@ -6,6 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Local
 sdk = {path = "../sdk"}
-# TODO just include neede features
-tokio = { version = "1", features = ["full"] }
+
+# Public
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+dotenv = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+envy = "0.4"
+anyhow = "1"
+uuid = {version = "0.8", features =  ["serde", "v4"]}

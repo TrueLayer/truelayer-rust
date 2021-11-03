@@ -1,9 +1,8 @@
-use std::str::FromStr;
-
-use reqwest::{multipart::Form, Request};
+use reqwest::multipart::Form;
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use url::Url;
+use uuid::Uuid;
 
 pub struct Authentication {
     auth_server: Url,
@@ -31,21 +30,23 @@ impl Authentication {
 
 pub struct Client {
     /// kid
-    id: String,
+    id: Uuid,
+    /// This secret is a [`Uuid`], but the [`Uuid`] type is not compatible with [`Secret`].
+    /// So we treat it as a [`String`]
     secret: Secret<String>,
 }
 
 impl Client {
-    fn new(id: impl AsRef<str>, secret: impl AsRef<str>) -> Self {
+    pub fn new(id: Uuid, secret: Uuid) -> Self {
         Self {
-            id: id.as_ref().to_string(),
-            secret: Secret::new(secret.as_ref().to_string()),
+            id,
+            secret: Secret::new(secret.to_string()),
         }
     }
 }
 
 #[derive(Deserialize)]
-struct AccessToken {
+pub struct AccessToken {
     access_token: String,
     expires_in: u32,
 }
@@ -56,7 +57,7 @@ impl Authentication {
         Form::new()
             .text("scope", "paydirect")
             .text("grant_type", "client_credentials")
-            .text("client_id", client.id)
+            .text("client_id", client.id.to_string())
             .text("client_secret", client_secret)
     }
 
