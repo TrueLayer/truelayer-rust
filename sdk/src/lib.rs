@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod create_payment;
 
 #[cfg(test)]
 mod tests {
