@@ -46,7 +46,7 @@ impl Client {
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct AccessToken {
-    access_token: String,
+    pub access_token: String,
     expires_in: u32,
 }
 

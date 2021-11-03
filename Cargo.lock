@@ -60,6 +60,7 @@ dependencies = [
  "sdk",
  "serde",
  "tokio",
+ "url",
  "uuid",
 ]
 
@@ -941,6 +942,7 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

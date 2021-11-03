@@ -11,6 +11,7 @@ pub struct Tl {
     secrets: Secrets,
     auth_server: Authentication,
     client: auth::Client,
+    environment_uri: Url,
 }
 
 pub struct TlBuilder {
@@ -18,6 +19,7 @@ pub struct TlBuilder {
     http_client: Option<reqwest::Client>,
     secrets: Secrets,
     client: auth::Client,
+    environment_uri: Option<Url>,
 }
 
 impl TlBuilder {
@@ -27,6 +29,7 @@ impl TlBuilder {
             http_client: None,
             secrets,
             client,
+            environment_uri: None,
         }
     }
 
@@ -36,9 +39,17 @@ impl TlBuilder {
             ..self
         }
     }
+
     pub fn with_http_client(self, client: reqwest::Client) -> Self {
         Self {
             http_client: Some(client),
+            ..self
+        }
+    }
+
+    pub fn with_environment_uri(self, url: Url) -> Self {
+        Self {
+            environment_uri: Some(url),
             ..self
         }
     }
@@ -53,6 +64,9 @@ impl TlBuilder {
                 .auth_server
                 .map(Authentication::new)
                 .unwrap_or_default(),
+            environment_uri: self
+                .environment_uri
+                .unwrap_or_else(|| todo!("what's the default prod uri?")),
         }
     }
 }
@@ -72,7 +86,6 @@ impl Tl {
             }
         }
     }
-
 }
 
 #[cfg(test)]

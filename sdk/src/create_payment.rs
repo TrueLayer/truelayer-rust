@@ -1,3 +1,4 @@
+use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 use uuid::Uuid;
@@ -66,11 +67,11 @@ pub enum User {
 
 #[derive(Serialize)]
 pub struct Payment {
-    amount_in_minor: u64,
-    currency: Currency,
-    payment_method: PaymentMethod,
-    beneficiary: Beneficiary,
-    user: User,
+    pub amount_in_minor: u64,
+    pub currency: Currency,
+    pub payment_method: PaymentMethod,
+    pub beneficiary: Beneficiary,
+    pub user: User,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -78,24 +79,45 @@ pub enum PaymentError {
     /// Error while signing
     #[error("signing error")]
     SigningError(#[from] truelayer_signing::Error),
+    /// Error while doing the http request
+    #[error("http error")]
+    HttpError(#[from] reqwest::Error),
 }
 
-impl Tl {
-    pub async fn create_payment(
-        &self,
-        payment: &Payment,
-    ) -> Result<Handler, PaymentError> {
-        let payment = serde_json::to_string(payment)
-            .expect("Failed to serialize payment request: This is a bug");
-        let payment = payment.as_bytes();
-        let tl_signature =
-            truelayer_signing::sign_with_pem(self.secrets.certificate_id(), self.secrets.private_key_pem())
-                .method("POST")
-                .path("/payments")
-                .header("Idempotency-Key", Uuid::new_v4().as_bytes())
-                .body(payment)
-                .sign()?;
+static PAYMENTS_PATH: &str = "/payments";
 
+impl Tl {
+    pub async fn create_payment(&mut self, payment: &Payment) -> Result<Handler, PaymentError> {
+        let payment_bytes = serde_json::to_string(payment)
+            .expect("Failed to serialize payment request: This is a bug");
+        let payment_bytes = payment_bytes.as_bytes();
+        let tl_signature = signature(&self.secrets, payment_bytes)?;
+        let access_token = &self.access_token().await?.access_token.clone();
+        let response = self
+            .http_client
+            .post(self.payments_endpoint())
+            .bearer_auth(access_token)
+            .header("Tl-Signature", tl_signature)
+            .json(&payment)
+            .send()
+            .await?;
+
+        dbg!(&response.text().await);
         Ok(Handler)
     }
+
+    fn payments_endpoint(&self) -> Url {
+        self.environment_uri
+            .join(PAYMENTS_PATH)
+            .expect("cannot create payments_path")
+    }
+}
+
+fn signature(secrets: &Secrets, payment_body: &[u8]) -> Result<String, truelayer_signing::Error> {
+    truelayer_signing::sign_with_pem(secrets.certificate_id(), secrets.private_key_pem())
+        .method("POST")
+        .path(PAYMENTS_PATH)
+        .header("Idempotency-Key", Uuid::new_v4().as_bytes())
+        .body(payment_body)
+        .sign()
 }
