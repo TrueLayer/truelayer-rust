@@ -645,6 +645,8 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "thiserror",
+ "truelayer-signing",
  "url",
  "uuid",
 ]
@@ -766,6 +768,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "1.0.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "854babe52e4df1653706b98fcfc05843010039b406875930a70e4d9644e5c417"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa32fd3f627f367fe16f893e2597ae3c05020f8bba2666a4e6ea73d377e5714b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -856,6 +878,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f4ed65637b8390770814083d20756f87bfa2c21bf2f110babdc5438351746e4"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "truelayer-signing"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6acf082ab53071de16036815d393bc244fed0cb79671c9776e1228d2064ee86e"
+dependencies = [
+ "anyhow",
+ "base64",
+ "indexmap",
+ "openssl",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
