@@ -2,7 +2,9 @@ use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 use uuid::Uuid;
 
-struct Handler;
+use crate::Tl;
+
+pub struct Handler;
 
 pub struct Secrets {
     certificate_id: Secret<String>,
@@ -78,17 +80,22 @@ pub enum PaymentError {
     SigningError(#[from] truelayer_signing::Error),
 }
 
-pub async fn create_payment(secrets: &Secrets, payment: &Payment) -> Result<Handler, PaymentError> {
-    let payment =
-        serde_json::to_string(payment).expect("Failed to serialize payment request: This is a bug");
-    let payment = payment.as_bytes();
-    let tl_signature =
-        truelayer_signing::sign_with_pem(secrets.certificate_id(), secrets.private_key_pem())
-            .method("POST")
-            .path("/payments")
-            .header("Idempotency-Key", Uuid::new_v4().as_bytes())
-            .body(payment)
-            .sign()?;
+impl Tl {
+    pub async fn create_payment(
+        &self,
+        payment: &Payment,
+    ) -> Result<Handler, PaymentError> {
+        let payment = serde_json::to_string(payment)
+            .expect("Failed to serialize payment request: This is a bug");
+        let payment = payment.as_bytes();
+        let tl_signature =
+            truelayer_signing::sign_with_pem(self.secrets.certificate_id(), self.secrets.private_key_pem())
+                .method("POST")
+                .path("/payments")
+                .header("Idempotency-Key", Uuid::new_v4().as_bytes())
+                .body(payment)
+                .sign()?;
 
-    Ok(Handler)
+        Ok(Handler)
+    }
 }

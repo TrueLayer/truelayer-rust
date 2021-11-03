@@ -4,7 +4,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[derive(Debug)]
-pub struct Authentication {
+pub(crate) struct Authentication {
     auth_server: Url,
 }
 
@@ -17,10 +17,8 @@ impl Default for Authentication {
 }
 
 impl Authentication {
-    pub fn new(auth_server: impl AsRef<str>) -> Result<Self, url::ParseError> {
-        Ok(Self {
-            auth_server: Url::parse(auth_server.as_ref())?,
-        })
+    pub(crate) fn new(auth_server: Url) -> Self {
+        Self { auth_server }
     }
 
     fn connect_token_endpoint(&self) -> Url {
@@ -47,13 +45,13 @@ impl Client {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct AccessToken {
+pub(crate) struct AccessToken {
     access_token: String,
     expires_in: u32,
 }
 
 impl Authentication {
-    fn form(client: Client) -> serde_json::Value {
+    fn form(client: &Client) -> serde_json::Value {
         let client_secret = client.secret.expose_secret().clone();
 
         serde_json::json!({
@@ -64,8 +62,8 @@ impl Authentication {
         })
     }
 
-    pub async fn auth(&self, client: Client) -> Result<AccessToken, reqwest::Error> {
-        let http_client = reqwest::Client::new();
+    /// Get access token from auth server
+    pub(crate) async fn get_token(&self, client: &Client, http_client: &reqwest::Client) -> Result<AccessToken, reqwest::Error> {
         let form = Self::form(client);
         http_client
             .post(self.connect_token_endpoint())
