@@ -11,7 +11,6 @@ pub mod create_payment;
 ///
 /// It also handels any state, including HTTP-client and access tokens.
 pub struct Tl {
-    access_token: Option<AccessToken>,
     http_client: reqwest::Client,
     secrets: Secrets,
     auth_server: Authentication,
@@ -62,7 +61,6 @@ impl TlBuilder {
 
     pub fn build(self) -> Tl {
         Tl {
-            access_token: None,
             http_client: self.http_client.unwrap_or_else(reqwest::Client::new),
             secrets: self.secrets,
             client: self.client,
@@ -79,18 +77,9 @@ impl TlBuilder {
 
 impl Tl {
     async fn access_token(&mut self) -> Result<&AccessToken, reqwest::Error> {
-        // Todo: don't expose reqwest::error directly to user
-        match self.access_token {
-            Some(ref token) => Ok(token),
-            None => {
-                let access_token = self
-                    .auth_server
-                    .get_token(&self.client, &self.http_client)
-                    .await?;
-                self.access_token = Some(access_token);
-                Ok(self.access_token.as_ref().unwrap())
-            }
-        }
+        self.auth_server
+            .access_token(&self.client, &self.http_client)
+            .await
     }
 }
 

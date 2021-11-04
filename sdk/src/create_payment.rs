@@ -113,13 +113,15 @@ impl Tl {
         let payment_bytes = serde_json::to_string(payment)
             .expect("Failed to serialize payment request: This is a bug");
         let payment_bytes = payment_bytes.as_bytes();
-        let tl_signature = signature(&self.secrets, payment_bytes)?;
+        let idempotency_key = Uuid::new_v4().to_string();
+        let tl_signature = signature(&self.secrets, payment_bytes, idempotency_key.as_bytes())?;
         let access_token = &self.access_token().await?.access_token.clone();
         let response = self
             .http_client
             .post(self.payments_endpoint())
             .bearer_auth(access_token)
             .header("Tl-Signature", tl_signature)
+            .header("Idempotency-Key", idempotency_key)
             .json(&payment)
             .send()
             .await?;
@@ -135,11 +137,15 @@ impl Tl {
     }
 }
 
-fn signature(secrets: &Secrets, payment_body: &[u8]) -> Result<String, truelayer_signing::Error> {
+fn signature(
+    secrets: &Secrets,
+    payment_body: &[u8],
+    idempotency_key: &[u8],
+) -> Result<String, truelayer_signing::Error> {
     truelayer_signing::sign_with_pem(secrets.certificate_id(), secrets.private_key_pem())
         .method("POST")
         .path(PAYMENTS_PATH)
-        .header("Idempotency-Key", Uuid::new_v4().as_bytes())
+        .header("Idempotency-Key", idempotency_key)
         .body(payment_body)
         .sign()
 }

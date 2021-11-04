@@ -6,23 +6,45 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub(crate) struct Authentication {
     auth_server: Url,
+    access_token: Option<AccessToken>,
+
 }
 
 impl Default for Authentication {
     fn default() -> Self {
         Self {
             auth_server: Url::parse("https://auth.truelayer.com/").unwrap(),
+            access_token: None,
         }
     }
 }
 
 impl Authentication {
     pub(crate) fn new(auth_server: Url) -> Self {
-        Self { auth_server }
+        Self {
+            auth_server,
+            access_token: None,
+        }
     }
 
     fn connect_token_endpoint(&self) -> Url {
         self.auth_server.join("connect/token").unwrap()
+    }
+
+    pub(crate) async fn access_token(
+        &mut self,
+        client: &Client,
+        http_client: &reqwest::Client,
+    ) -> Result<&AccessToken, reqwest::Error> {
+        // Todo: don't expose reqwest::error directly to user
+        match self.access_token {
+            Some(ref token) => Ok(token),
+            None => {
+                let access_token = self.get_token(client, http_client).await?;
+                self.access_token = Some(access_token);
+                Ok(self.access_token.as_ref().unwrap())
+            }
+        }
     }
 }
 
