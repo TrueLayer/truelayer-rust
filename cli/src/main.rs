@@ -60,16 +60,6 @@ async fn main() -> anyhow::Result<()> {
         .with_environment_uri(config.environment_uri)
         .build();
     let mut handle = tl.create_payment(&payment()).await?;
-
-    dbg!(handle.authorization_url());
-
-    loop {
-        tokio::time::sleep(Duration::from_secs(3)).await;
-        let response = tl.get_payment(&handle.response.id).await?;
-        println!("payment status: {:?}", response.status);
-    }
-    // handle.wait_for_settled();
-
-    // println!("Payment was successful");
-    //Ok(())
+    handle.wait_for_succeeded(&mut tl).await?;
+    Ok(())
 }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,7 @@ use uuid::Uuid;
 
 use crate::Tl;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentStatus {
     AuthorizationRequired,
@@ -30,8 +32,17 @@ impl PaymentHandler {
     pub fn wait_for_authorized(&mut self) {
         todo!()
     }
-    pub fn wait_for_succeeded(&mut self) {
-        todo!()
+    pub async fn wait_for_succeeded(&mut self, tl: &mut crate::Tl) -> Result<(), reqwest::Error>{
+        println!("pay here: {}", self.authorization_url());
+
+        loop {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            let response = tl.get_payment(&self.response.id).await?;
+            println!("payment status: {:?}", response.status);
+            if response.status == PaymentStatus::Succeeded {
+                break Ok(());
+            }
+        }
     }
     pub fn wait_for_settled(&mut self) {
         todo!()
