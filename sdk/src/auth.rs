@@ -63,7 +63,11 @@ impl Authentication {
     }
 
     /// Get access token from auth server
-    pub(crate) async fn get_token(&self, client: &Client, http_client: &reqwest::Client) -> Result<AccessToken, reqwest::Error> {
+    pub(crate) async fn get_token(
+        &self,
+        client: &Client,
+        http_client: &reqwest::Client,
+    ) -> Result<AccessToken, reqwest::Error> {
         let form = Self::form(client);
         http_client
             .post(self.connect_token_endpoint())

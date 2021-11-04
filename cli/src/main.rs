@@ -1,8 +1,8 @@
 use dotenv::dotenv;
-use url::Url;
 use sdk::auth::Client;
 use sdk::create_payment::{Payment, Secrets, User};
 use sdk::TlBuilder;
+use url::Url;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]

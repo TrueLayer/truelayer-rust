@@ -5,7 +5,26 @@ use uuid::Uuid;
 
 use crate::Tl;
 
-pub struct Handler;
+pub struct PaymentHandler;
+
+impl PaymentHandler {
+    fn pay(&self) {
+        todo!()
+    }
+    /// Retry with the same Idempotency-Key
+    fn retry(&self) {
+        todo!()
+    }
+    fn wait_for_authorized(&self) {
+        todo!()
+    }
+    fn wait_for_succeeded(&self) {
+        todo!()
+    }
+    fn wait_for_settled(&self) {
+        todo!()
+    }
+}
 
 pub struct Secrets {
     certificate_id: Secret<String>,
@@ -87,7 +106,10 @@ pub enum PaymentError {
 static PAYMENTS_PATH: &str = "/payments";
 
 impl Tl {
-    pub async fn create_payment(&mut self, payment: &Payment) -> Result<Handler, PaymentError> {
+    pub async fn create_payment(
+        &mut self,
+        payment: &Payment,
+    ) -> Result<PaymentHandler, PaymentError> {
         let payment_bytes = serde_json::to_string(payment)
             .expect("Failed to serialize payment request: This is a bug");
         let payment_bytes = payment_bytes.as_bytes();
@@ -103,7 +125,7 @@ impl Tl {
             .await?;
 
         dbg!(&response.text().await);
-        Ok(Handler)
+        Ok(PaymentHandler)
     }
 
     fn payments_endpoint(&self) -> Url {

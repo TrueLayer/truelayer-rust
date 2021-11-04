@@ -5,6 +5,11 @@ use reqwest::Url;
 pub mod auth;
 pub mod create_payment;
 
+/// Truelayer instance created with [TlBuilder].
+///
+/// This object stores configuraton for connection to TrueLayer.
+///
+/// It also handels any state, including HTTP-client and access tokens.
 pub struct Tl {
     access_token: Option<AccessToken>,
     http_client: reqwest::Client,
@@ -14,6 +19,7 @@ pub struct Tl {
     environment_uri: Url,
 }
 
+/// Builder pattern to construct a [Tl]
 pub struct TlBuilder {
     auth_server: Option<Url>,
     http_client: Option<reqwest::Client>,
