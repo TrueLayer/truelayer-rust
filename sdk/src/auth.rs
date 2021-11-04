@@ -1,5 +1,6 @@
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
+use tracing::info;
 use url::Url;
 use uuid::Uuid;
 
@@ -38,9 +39,15 @@ impl Authentication {
     ) -> Result<&AccessToken, reqwest::Error> {
         // Todo: don't expose reqwest::error directly to user
         match self.access_token {
-            Some(ref token) => Ok(token),
+            Some(ref token) => {
+                info!("using existing access token");
+                Ok(token)
+            }
             None => {
-                let access_token = self.get_token(client, http_client).await?;
+                let access_token = self
+                    .get_token(client, http_client)
+                    .await?;
+                info!("retrieved new access token");
                 self.access_token = Some(access_token);
                 Ok(self.access_token.as_ref().unwrap())
             }

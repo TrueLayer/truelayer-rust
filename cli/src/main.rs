@@ -1,3 +1,5 @@
+mod log;
+
 use anyhow::Context;
 use sdk::auth::Client;
 use sdk::create_payment::{Payment, Secrets, User};
@@ -41,8 +43,10 @@ fn payment() -> Payment {
         },
     }
 }
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    log::init();
     let config = Config::read()?;
     let client = Client::new(config.client_id, config.client_secret);
     let secrets = Secrets::new(config.certificate_id, config.private_key);

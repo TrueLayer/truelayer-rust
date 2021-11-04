@@ -1,6 +1,10 @@
-use reqwest::Url;
+use reqwest::{
+    header::{HeaderValue, CONTENT_TYPE},
+    Url,
+};
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::Tl;
@@ -8,17 +12,17 @@ use crate::Tl;
 pub struct PaymentHandler;
 
 impl PaymentHandler {
-    fn pay(&self) {
+    fn pay(&mut self) {
         todo!()
     }
     /// Retry with the same Idempotency-Key
-    fn retry(&self) {
+    fn retry(&mut self) {
         todo!()
     }
-    fn wait_for_authorized(&self) {
+    fn wait_for_authorized(&mut self) {
         todo!()
     }
-    fn wait_for_succeeded(&self) {
+    fn wait_for_succeeded(&mut self) {
         todo!()
     }
     fn wait_for_settled(&self) {
@@ -110,9 +114,9 @@ impl Tl {
         &mut self,
         payment: &Payment,
     ) -> Result<PaymentHandler, PaymentError> {
-        let payment_bytes = serde_json::to_string(payment)
+        let payment_json = serde_json::to_string(payment)
             .expect("Failed to serialize payment request: This is a bug");
-        let payment_bytes = payment_bytes.as_bytes();
+        let payment_bytes = payment_json.as_bytes();
         let idempotency_key = Uuid::new_v4().to_string();
         let tl_signature = signature(&self.secrets, payment_bytes, idempotency_key.as_bytes())?;
         let access_token = &self.access_token().await?.access_token.clone();

@@ -1,6 +1,7 @@
 use auth::{AccessToken, Authentication};
 use create_payment::Secrets;
 use reqwest::Url;
+use tracing::info;
 
 pub mod auth;
 pub mod create_payment;
@@ -76,6 +77,7 @@ impl TlBuilder {
 }
 
 impl Tl {
+    #[tracing::instrument(skip(self))]
     async fn access_token(&mut self) -> Result<&AccessToken, reqwest::Error> {
         self.auth_server
             .access_token(&self.client, &self.http_client)
