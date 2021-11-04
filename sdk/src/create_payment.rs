@@ -1,44 +1,46 @@
-use reqwest::{
-    header::{HeaderValue, CONTENT_TYPE},
-    Url,
-};
+use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 use uuid::Uuid;
 
 use crate::Tl;
 
+pub enum PaymentStatus {
+    AuthorizationRequired,
+    Authorizing,
+    Failed,
+    Authorized,
+    Suceeded,
+    Settled,
+}
+
 pub struct PaymentHandler {
-    resource_token: String,
+    response: PaymentResponse,
 }
 
 impl PaymentHandler {
-    fn pay(&mut self) {
+    pub fn pay(&mut self) {
         todo!()
     }
     /// Retry with the same Idempotency-Key
-    fn retry(&mut self) {
+    pub fn retry(&mut self) {
         todo!()
     }
-    fn wait_for_authorized(&mut self) {
+    pub fn wait_for_authorized(&mut self) {
         todo!()
     }
-    fn wait_for_succeeded(&mut self) {
+    pub fn wait_for_succeeded(&mut self) {
         todo!()
     }
-    fn wait_for_settled(&self) {
+    pub fn wait_for_settled(&mut self) {
         todo!()
     }
     pub fn authorization_url(&self) -> String {
         format!(
-            "https://checkout.t7r.dev/#resource_token={}&return_uri=www.google.com",
-            self.resource_token
+            "https://checkout.t7r.dev/payments#payment_id={}&resource_token={}&return_uri=https://console.t7r.dev/redirect-page",
+            self.response.id,
+            self.response.resource_token,
         )
-        // format!(
-        //     "https://hpp.t7r.dev/#resource_token={}",
-        //     self.resource_token
-        // )
     }
 }
 
@@ -145,10 +147,10 @@ pub enum PaymentError {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct PaymentResponse {
-    // pub amount_in_minor: u32,
-    // pub id: Uuid,
-    // pub payment_method: PaymentMethod,
+pub struct PaymentResponse {
+    pub amount_in_minor: u32,
+    pub id: Uuid,
+    pub payment_method: PaymentMethod,
     pub resource_token: String,
 }
 
@@ -177,8 +179,7 @@ impl Tl {
             .json::<PaymentResponse>()
             .await?;
 
-        let PaymentResponse { resource_token, .. } = response;
-        Ok(PaymentHandler { resource_token })
+        Ok(PaymentHandler { response })
     }
 
     fn payments_endpoint(&self) -> Url {

@@ -55,8 +55,12 @@ async fn main() -> anyhow::Result<()> {
         .with_auth_server(config.auth_server_uri)
         .with_environment_uri(config.environment_uri)
         .build();
-    let handle = tl.create_payment(&payment()).await?;
+    let mut handle = tl.create_payment(&payment()).await?;
 
     dbg!(handle.authorization_url());
+
+    handle.wait_for_settled();
+
+    println!("Payment was successful");
     Ok(())
 }
