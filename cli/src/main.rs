@@ -18,12 +18,11 @@ struct Config {
 
 impl Config {
     fn read() -> anyhow::Result<Self> {
-        let mut settings = config::Config::new();
-        settings
+        let mut conf = config::Config::new();
+        conf
             // Add in `./config.json`
             .merge(config::File::with_name("config"))?;
-        settings
-            .try_into()
+        conf.try_into()
             .context("Failed to assemble the required configuration")
     }
 }
