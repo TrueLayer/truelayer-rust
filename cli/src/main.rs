@@ -1,4 +1,4 @@
-use dotenv::dotenv;
+use anyhow::Context;
 use sdk::auth::Client;
 use sdk::create_payment::{Payment, Secrets, User};
 use sdk::TlBuilder;
@@ -6,6 +6,7 @@ use url::Url;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "UPPERCASE")]
 struct Config {
     client_id: String,
     client_secret: Uuid,
@@ -17,9 +18,13 @@ struct Config {
 
 impl Config {
     fn read() -> anyhow::Result<Self> {
-        dotenv()?;
-        let config = envy::from_env::<Self>()?;
-        Ok(config)
+        let mut settings = config::Config::new();
+        settings
+            // Add in `./config.json`
+            .merge(config::File::with_name("config"))?;
+        settings
+            .try_into()
+            .context("Failed to assemble the required configuration")
     }
 }
 
