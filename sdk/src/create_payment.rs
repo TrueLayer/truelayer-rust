@@ -210,6 +210,7 @@ impl Tl {
         Ok(PaymentHandler { response })
     }
 
+
     pub fn payments_endpoint(&self) -> Url {
         self.environment_uri
             .join(PAYMENTS_PATH)
