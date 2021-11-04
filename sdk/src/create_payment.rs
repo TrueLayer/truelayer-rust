@@ -3,13 +3,15 @@ use reqwest::{
     Url,
 };
 use secrecy::{ExposeSecret, Secret};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
 
 use crate::Tl;
 
-pub struct PaymentHandler;
+pub struct PaymentHandler {
+    resource_token: String,
+}
 
 impl PaymentHandler {
     fn pay(&mut self) {
@@ -27,6 +29,16 @@ impl PaymentHandler {
     }
     fn wait_for_settled(&self) {
         todo!()
+    }
+    pub fn authorization_url(&self) -> String {
+        format!(
+            "https://checkout.t7r.dev/#resource_token={}&return_uri=www.google.com",
+            self.resource_token
+        )
+        // format!(
+        //     "https://hpp.t7r.dev/#resource_token={}",
+        //     self.resource_token
+        // )
     }
 }
 
@@ -57,7 +69,7 @@ pub enum Currency {
     Gbp,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PaymentMethod {
     BankTransfer,
@@ -131,6 +143,15 @@ pub enum PaymentError {
     HttpError(#[from] reqwest::Error),
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) struct PaymentResponse {
+    // pub amount_in_minor: u32,
+    // pub id: Uuid,
+    // pub payment_method: PaymentMethod,
+    pub resource_token: String,
+}
+
 static PAYMENTS_PATH: &str = "/payments";
 
 impl Tl {
@@ -152,10 +173,12 @@ impl Tl {
             .header("Idempotency-Key", idempotency_key)
             .json(&payment)
             .send()
+            .await?
+            .json::<PaymentResponse>()
             .await?;
 
-        dbg!(&response.text().await);
-        Ok(PaymentHandler)
+        let PaymentResponse { resource_token, .. } = response;
+        Ok(PaymentHandler { resource_token })
     }
 
     fn payments_endpoint(&self) -> Url {

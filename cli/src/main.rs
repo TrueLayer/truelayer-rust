@@ -55,6 +55,8 @@ async fn main() -> anyhow::Result<()> {
         .with_auth_server(config.auth_server_uri)
         .with_environment_uri(config.environment_uri)
         .build();
-    tl.create_payment(&payment()).await?;
+    let handle = tl.create_payment(&payment()).await?;
+
+    dbg!(handle.authorization_url());
     Ok(())
 }
