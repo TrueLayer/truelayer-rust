@@ -1,5 +1,7 @@
 mod log;
 
+use std::str::FromStr;
+
 use anyhow::Context;
 use sdk::auth::Client;
 use sdk::create_payment::{NewUserInfo, Payment, Secrets, User};
@@ -35,7 +37,8 @@ fn payment() -> Payment {
         currency: sdk::create_payment::Currency::Gbp,
         payment_method: sdk::create_payment::PaymentMethod::BankTransfer,
         beneficiary: sdk::create_payment::Beneficiary::MerchantAccount {
-            id: Uuid::new_v4(),
+            // TODO get merchant id automatically
+            id: Uuid::from_str("7cb988f6-81e9-4788-b4bd-f7252468822c").unwrap(),
             name: "First Last".to_owned(),
         },
         user: User::New {
