@@ -5,23 +5,24 @@ use uuid::Uuid;
 
 use crate::Tl;
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum PaymentStatus {
     AuthorizationRequired,
     Authorizing,
     Failed,
     Authorized,
-    Suceeded,
+    /// The payment has been successfully executed by the provider (i.e. the sending bank).
+    Succeeded,
+    /// The payment has arrived in your merchant account. (*only for payments where the beneficiary.type is merchant_account).
     Settled,
 }
 
 pub struct PaymentHandler {
-    response: PaymentResponse,
+    pub response: PaymentResponse,
 }
 
 impl PaymentHandler {
-    pub fn pay(&mut self) {
-        todo!()
-    }
     /// Retry with the same Idempotency-Key
     pub fn retry(&mut self) {
         todo!()
@@ -36,6 +37,7 @@ impl PaymentHandler {
         todo!()
     }
     pub fn authorization_url(&self) -> String {
+        // TODO return_uri should be read from configuration
         format!(
             "https://checkout.t7r.dev/payments#payment_id={}&resource_token={}&return_uri=https://console.t7r.dev/redirect-page",
             self.response.id,
@@ -182,7 +184,7 @@ impl Tl {
         Ok(PaymentHandler { response })
     }
 
-    fn payments_endpoint(&self) -> Url {
+    pub fn payments_endpoint(&self) -> Url {
         self.environment_uri
             .join(PAYMENTS_PATH)
             .expect("cannot create payments_path")

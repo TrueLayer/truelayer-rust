@@ -1,6 +1,7 @@
 mod log;
 
 use std::str::FromStr;
+use std::time::Duration;
 
 use anyhow::Context;
 use sdk::auth::Client;
@@ -62,8 +63,13 @@ async fn main() -> anyhow::Result<()> {
 
     dbg!(handle.authorization_url());
 
-    handle.wait_for_settled();
+    loop {
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let response = tl.get_payment(&handle.response.id).await?;
+        println!("payment status: {:?}", response.status);
+    }
+    // handle.wait_for_settled();
 
-    println!("Payment was successful");
-    Ok(())
+    // println!("Payment was successful");
+    //Ok(())
 }

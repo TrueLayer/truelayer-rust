@@ -5,6 +5,7 @@ use tracing::info;
 
 pub mod auth;
 pub mod create_payment;
+mod payment_status;
 
 /// Truelayer instance created with [TlBuilder].
 ///
