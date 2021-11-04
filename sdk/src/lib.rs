@@ -1,7 +1,6 @@
 use auth::{AccessToken, Authentication};
 use create_payment::Secrets;
 use reqwest::Url;
-use tracing::info;
 
 pub mod auth;
 pub mod create_payment;

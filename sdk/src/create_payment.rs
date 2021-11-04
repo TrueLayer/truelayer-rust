@@ -24,6 +24,14 @@ pub struct PaymentHandler {
     pub response: PaymentResponse,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum WaitForStatusError {
+    #[error("received a different final state: `{0:?}`")]
+    MismatchedState(PaymentStatus),
+    #[error("error while doing an http call")]
+    HttpError(#[from] reqwest::Error),
+}
+
 impl PaymentHandler {
     /// Retry with the same Idempotency-Key
     pub fn retry(&mut self) {
@@ -32,15 +40,22 @@ impl PaymentHandler {
     pub fn wait_for_authorized(&mut self) {
         todo!()
     }
-    pub async fn wait_for_succeeded(&mut self, tl: &mut crate::Tl) -> Result<(), reqwest::Error>{
+    pub async fn wait_for_succeeded(
+        &mut self,
+        tl: &mut crate::Tl,
+    ) -> Result<(), WaitForStatusError> {
         println!("pay here: {}", self.authorization_url());
 
         loop {
             tokio::time::sleep(Duration::from_secs(3)).await;
             let response = tl.get_payment(&self.response.id).await?;
             println!("payment status: {:?}", response.status);
-            if response.status == PaymentStatus::Succeeded {
-                break Ok(());
+            match response.status {
+                PaymentStatus::Succeeded | PaymentStatus::Settled => break Ok(()),
+                PaymentStatus::Failed => {
+                    return Err(WaitForStatusError::MismatchedState(PaymentStatus::Failed))
+                }
+                _ => (),
             }
         }
     }

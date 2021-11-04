@@ -1,7 +1,6 @@
 mod log;
 
 use std::str::FromStr;
-use std::time::Duration;
 
 use anyhow::Context;
 use sdk::auth::Client;
