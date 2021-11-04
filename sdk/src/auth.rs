@@ -8,7 +8,6 @@ use uuid::Uuid;
 pub(crate) struct Authentication {
     auth_server: Url,
     access_token: Option<AccessToken>,
-
 }
 
 impl Default for Authentication {
@@ -44,9 +43,7 @@ impl Authentication {
                 Ok(token)
             }
             None => {
-                let access_token = self
-                    .get_token(client, http_client)
-                    .await?;
+                let access_token = self.get_token(client, http_client).await?;
                 info!("retrieved new access token");
                 self.access_token = Some(access_token);
                 Ok(self.access_token.as_ref().unwrap())

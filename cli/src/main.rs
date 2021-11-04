@@ -2,7 +2,7 @@ mod log;
 
 use anyhow::Context;
 use sdk::auth::Client;
-use sdk::create_payment::{Payment, Secrets, User};
+use sdk::create_payment::{NewUserInfo, Payment, Secrets, User};
 use sdk::TlBuilder;
 use url::Url;
 use uuid::Uuid;
@@ -40,6 +40,7 @@ fn payment() -> Payment {
         },
         user: User::New {
             name: "username".to_string(),
+            info: NewUserInfo::with_email("user@example.com"),
         },
     }
 }

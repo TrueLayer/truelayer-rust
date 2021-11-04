@@ -15,3 +15,6 @@ uuid = {version = "0.8", features =  ["v4"]}
 truelayer-signing = "0.1.0"
 thiserror = "1"
 tracing = "0.1"
+
+[dev-dependencies]
+pretty_assertions = "1"

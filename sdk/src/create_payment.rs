@@ -52,36 +52,30 @@ impl Secrets {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     Gbp,
 }
 
-impl ToString for Currency {
-    fn to_string(&self) -> String {
-        match self {
-            Currency::Gbp => "GBP",
-        }
-        .to_owned()
-    }
-}
-
 #[derive(Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum PaymentMethod {
     BankTransfer,
 }
 
 #[derive(Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Beneficiary {
     MerchantAccount { id: Uuid, name: String },
 }
 
 #[derive(Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum User {
     New {
         name: String,
+        #[serde(flatten)]
+        info: NewUserInfo,
     },
     Existing {
         id: String, // Maybe this is a Uuid
@@ -89,6 +83,36 @@ pub enum User {
 }
 
 #[derive(Serialize)]
+pub struct NewUserInfo {
+    email: Option<String>,
+    phone: Option<String>,
+}
+
+impl NewUserInfo {
+    pub fn with_email(email: impl AsRef<str>) -> Self {
+        Self {
+            email: Some(email.as_ref().to_string()),
+            phone: None,
+        }
+    }
+
+    pub fn with_phone(phone: impl AsRef<str>) -> Self {
+        Self {
+            phone: Some(phone.as_ref().to_string()),
+            email: None,
+        }
+    }
+
+    pub fn with_email_and_phone(email: impl AsRef<str>, phone: impl AsRef<str>) -> Self {
+        Self {
+            email: Some(email.as_ref().to_string()),
+            phone: Some(phone.as_ref().to_string()),
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
 pub struct Payment {
     pub amount_in_minor: u64,
     pub currency: Currency,
@@ -152,4 +176,59 @@ fn signature(
         .header("Idempotency-Key", idempotency_key)
         .body(payment_body)
         .sign()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn payment_body_is_serialized_with_expected_json() {
+        let merchant_id = "c54104a5-fdd1-4277-8793-dbfa511c898b";
+        let merchant_name = "First Last";
+        let user_email = "user@example.com";
+        let expected_json = serde_json::json!({
+            "amount_in_minor": 1,
+            "currency": "GBP",
+            "payment_method": {
+                "type": "bank_transfer"
+            },
+            "beneficiary": {
+                "type": "merchant_account",
+                "id": merchant_id,
+                "name": merchant_name
+            },
+            "user": {
+                "type": "new",
+                "name": "username",
+                "email": user_email,
+                "phone": null
+            }
+        });
+
+        let actual_payment = Payment {
+            amount_in_minor: 1,
+            currency: Currency::Gbp,
+            payment_method: PaymentMethod::BankTransfer,
+            beneficiary: Beneficiary::MerchantAccount {
+                id: Uuid::from_str(merchant_id).unwrap(),
+                name: merchant_name.to_owned(),
+            },
+            user: User::New {
+                name: "username".to_string(),
+                info: NewUserInfo::with_email(user_email),
+            },
+        };
+
+        assert_eq!(
+            expected_json,
+            serde_json::from_str::<serde_json::Value>(
+                &serde_json::to_string(&actual_payment).unwrap()
+            )
+            .unwrap()
+        )
+    }
 }
