@@ -9,6 +9,7 @@
 - [ ] mark everything related to the API (enum, structs) as non exhaustive,
       since field can be always added.
 - [ ] handle of fields of the requests and responses. Right now only mandatory fields (and a few others are handled).
+- [ ] add tests by mocking the API.
 
 ## Configuration
 
