@@ -1,11 +1,16 @@
 mod log;
 
-use std::str::FromStr;
-
 use anyhow::Context;
-use sdk::auth::Client;
-use sdk::create_payment::{NewUserInfo, Payment, Secrets, User};
-use sdk::TlBuilder;
+use sdk::{
+    apis::{
+        auth::Credentials,
+        payments::{
+            Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, PaymentMethodProvider,
+            PaymentMethodProviderType, PaymentMethodType, SchemeIdentifier, User,
+        },
+    },
+    TrueLayerClient,
+};
 use url::Url;
 use uuid::Uuid;
 
@@ -13,11 +18,13 @@ use uuid::Uuid;
 #[serde(rename_all = "UPPERCASE")]
 struct Config {
     client_id: String,
-    client_secret: Uuid,
+    client_secret: String,
     auth_server_uri: Url,
-    certificate_id: Uuid,
+    certificate_id: String,
     private_key: String,
     environment_uri: Url,
+    return_uri: Url,
+    hpp_uri: Url,
 }
 
 impl Config {
@@ -31,34 +38,70 @@ impl Config {
     }
 }
 
-fn payment() -> Payment {
-    Payment {
-        amount_in_minor: 1,
-        currency: sdk::create_payment::Currency::Gbp,
-        payment_method: sdk::create_payment::PaymentMethod::BankTransfer,
-        beneficiary: sdk::create_payment::Beneficiary::MerchantAccount {
-            // TODO get merchant id automatically
-            id: Uuid::from_str("7cb988f6-81e9-4788-b4bd-f7252468822c").unwrap(),
-            name: "First Last".to_owned(),
-        },
-        user: User::New {
-            name: "username".to_string(),
-            info: NewUserInfo::with_email("user@example.com"),
-        },
-    }
+async fn run() -> anyhow::Result<()> {
+    log::init();
+    let config = Config::read()?;
+
+    // Setup TrueLayer client
+    let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
+        client_id: config.client_id,
+        client_secret: config.client_secret,
+        scope: "payments".to_string(),
+    })
+    .with_certificate(&config.certificate_id, config.private_key.into_bytes())
+    .with_auth_url(config.auth_server_uri)
+    .with_payments_url(config.environment_uri)
+    .with_hosted_payments_page_url(config.hpp_uri)
+    .build();
+
+    // Create a new outgoing payment
+    let res = tl
+        .payments
+        .create(
+            &CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethod {
+                    r#type: PaymentMethodType::BankTransfer,
+                    provider: PaymentMethodProvider {
+                        r#type: PaymentMethodProviderType::UserSelection,
+                    },
+                },
+                beneficiary: Beneficiary::ExternalAccount {
+                    name: "Some One".to_string(),
+                    reference: "testrustsdk".to_string(),
+                    scheme_identifier: SchemeIdentifier::SortCodeAccountNumber {
+                        sort_code: "123456".to_string(),
+                        account_number: "12345678".to_string(),
+                    },
+                },
+                user: User {
+                    id: Some(Uuid::new_v4().to_string()),
+                    name: Some("Some One".to_string()),
+                    email: Some("some.one@email.com".to_string()),
+                    phone: None,
+                },
+            },
+            &Uuid::new_v4().to_string(),
+        )
+        .await?;
+
+    tracing::info!("Created new payment: {}", res.id);
+
+    tracing::info!(
+        "HPP Link: {}",
+        tl.payments
+            .get_hosted_payments_page_link(&res.id, &res.payment_token, config.return_uri.as_str())
+            .await
+    );
+
+    Ok(())
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    log::init();
-    let config = Config::read()?;
-    let client = Client::new(config.client_id, config.client_secret);
-    let secrets = Secrets::new(config.certificate_id, config.private_key);
-    let mut tl = TlBuilder::new(secrets, client)
-        .with_auth_server(config.auth_server_uri)
-        .with_environment_uri(config.environment_uri)
-        .build();
-    let mut handle = tl.create_payment(&payment()).await?;
-    handle.wait_for_succeeded(&mut tl).await?;
-    Ok(())
+async fn main() {
+    if let Err(e) = run().await {
+        tracing::error!("Fatal error: {:?}", e);
+        std::process::exit(1);
+    }
 }
