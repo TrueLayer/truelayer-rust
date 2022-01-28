@@ -15,11 +15,11 @@ use task_local_extensions::Extensions;
 /// - Has a `GET` method, or
 /// - Has a `POST`, `PUT` or `DELETE` method *and* an `Idempotency-Key` header set
 pub struct RetryIdempotentMiddleware {
-    inner: RetryTransientMiddleware<BoxedRetryPolicy>,
+    inner: RetryTransientMiddleware<DynRetryPolicy>,
 }
 
 impl RetryIdempotentMiddleware {
-    pub fn new(retry_policy: BoxedRetryPolicy) -> Self {
+    pub fn new(retry_policy: DynRetryPolicy) -> Self {
         Self {
             inner: RetryTransientMiddleware::new_with_policy(retry_policy),
         }
@@ -54,15 +54,15 @@ impl Middleware for RetryIdempotentMiddleware {
 
 /// Wrapper type around a retry policy because `dyn RetryPolicy` does not implement `RetryPolicy`.
 #[derive(Clone)]
-pub struct BoxedRetryPolicy(pub Arc<dyn RetryPolicy + Send + Sync + 'static>);
+pub struct DynRetryPolicy(pub Arc<dyn RetryPolicy + Send + Sync + 'static>);
 
-impl RetryPolicy for BoxedRetryPolicy {
+impl RetryPolicy for DynRetryPolicy {
     fn should_retry(&self, n_past_retries: u32) -> RetryDecision {
         self.0.should_retry(n_past_retries)
     }
 }
 
-impl Debug for BoxedRetryPolicy {
+impl Debug for DynRetryPolicy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BoxedRetryPolicy").finish_non_exhaustive()
     }
@@ -94,7 +94,7 @@ mod tests {
 
         let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
         let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
-            .with(RetryIdempotentMiddleware::new(BoxedRetryPolicy(Arc::new(
+            .with(RetryIdempotentMiddleware::new(DynRetryPolicy(Arc::new(
                 retry_policy,
             ))))
             .build();

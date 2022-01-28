@@ -10,7 +10,7 @@ use crate::{
     middlewares::{
         authentication::AuthenticationMiddleware,
         error_handling::ErrorHandlingMiddleware,
-        retry_idempotent::{BoxedRetryPolicy, RetryIdempotentMiddleware},
+        retry_idempotent::{DynRetryPolicy, RetryIdempotentMiddleware},
         signing::SigningMiddleware,
     },
 };
@@ -54,7 +54,7 @@ impl TrueLayerClient {
 #[derive(Debug)]
 pub struct TrueLayerClientBuilder {
     client: reqwest::Client,
-    retry_policy: Option<BoxedRetryPolicy>,
+    retry_policy: Option<DynRetryPolicy>,
     auth_url: Url,
     payments_url: Url,
     hpp_url: Url,
@@ -67,7 +67,7 @@ impl TrueLayerClientBuilder {
     pub fn new(credentials: Credentials) -> Self {
         Self {
             client: reqwest::Client::new(),
-            retry_policy: Some(BoxedRetryPolicy(Arc::new(
+            retry_policy: Some(DynRetryPolicy(Arc::new(
                 ExponentialBackoff::builder().build_with_max_retries(3),
             ))),
             auth_url: Url::parse(DEFAULT_AUTH_URL).unwrap(),
@@ -135,7 +135,7 @@ impl TrueLayerClientBuilder {
         mut self,
         retry_policy: impl Into<Option<Arc<dyn RetryPolicy + Send + Sync + 'static>>>,
     ) -> Self {
-        self.retry_policy = retry_policy.into().map(BoxedRetryPolicy);
+        self.retry_policy = retry_policy.into().map(DynRetryPolicy);
         self
     }
 
@@ -182,7 +182,7 @@ impl TrueLayerClientBuilder {
 
 fn build_client_with_middleware(
     client: reqwest::Client,
-    retry_policy: Option<BoxedRetryPolicy>,
+    retry_policy: Option<DynRetryPolicy>,
     auth_middleware: Option<AuthenticationMiddleware>,
     signing_middleware: Option<SigningMiddleware>,
 ) -> ClientWithMiddleware {
