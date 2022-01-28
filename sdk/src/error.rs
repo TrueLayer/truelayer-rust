@@ -46,7 +46,7 @@ pub struct ApiError {
     pub status: u16,
     pub trace_id: Option<String>,
     pub detail: Option<String>,
-    pub errors: Option<HashMap<String, Vec<String>>>,
+    pub errors: HashMap<String, Vec<String>>,
 }
 
 impl fmt::Display for ApiError {
@@ -65,9 +65,9 @@ impl fmt::Display for ApiError {
             write!(f, "\nTrace ID: {}", trace_id)?;
         }
 
-        if let Some(ref errors) = self.errors {
+        if !self.errors.is_empty() {
             write!(f, "\nAll errors:")?;
-            for (k, v) in errors {
+            for (k, v) in &self.errors {
                 write!(f, "\n- {}: {}", k, v.join(", "))?;
             }
         }

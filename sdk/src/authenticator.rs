@@ -25,15 +25,15 @@ impl Authenticator {
 
         // Spawn a long running task which will running forever until the authenticator is dropped
         let (tx, rx) = mpsc::unbounded_channel();
-        if cfg!(test) {
+        #[cfg(test)]
         tests::mocked_time::spawn(async move {
             // We need to propagate the mocked time task-local in order to control time in the tests
             process_loop(state, rx).await;
         });
-        } else {
+        #[cfg(not(test))]
         tokio::spawn(async move {
             process_loop(state, rx).await;
-        });}
+        });
 
         Self { tx }
     }

@@ -25,32 +25,32 @@ impl Middleware for SigningMiddleware {
     ) -> reqwest_middleware::Result<Response> {
         // Sign only POST, PUT and DELETE requests
         if let Method::POST | Method::PUT | Method::DELETE = *req.method() {
-                // Include method and path
-                let mut signer = truelayer_signing::sign_with_pem(
-                    &self.certificate_id,
-                    &self.certificate_private_key,
-                )
-                .method(req.method().as_str())
-                .path(req.url().path());
+            // Include method and path
+            let mut signer = truelayer_signing::sign_with_pem(
+                &self.certificate_id,
+                &self.certificate_private_key,
+            )
+            .method(req.method().as_str())
+            .path(req.url().path());
 
-                // Include the idempotency key header
-                if let Some(idempotency_key) = req.headers().get(IDEMPOTENCY_KEY_HEADER) {
-                    signer = signer.header(IDEMPOTENCY_KEY_HEADER, idempotency_key.as_bytes());
-                }
+            // Include the idempotency key header
+            if let Some(idempotency_key) = req.headers().get(IDEMPOTENCY_KEY_HEADER) {
+                signer = signer.header(IDEMPOTENCY_KEY_HEADER, idempotency_key.as_bytes());
+            }
 
-                // Include the body
-                if let Some(body) = req.body() {
-                    let bytes = body
-                        .as_bytes()
-                        .ok_or_else(|| anyhow::anyhow!("Cannot sign a streaming request body"))?;
-                    signer = signer.body(bytes);
-                }
+            // Include the body
+            if let Some(body) = req.body() {
+                let bytes = body
+                    .as_bytes()
+                    .ok_or_else(|| anyhow::anyhow!("Cannot sign a streaming request body"))?;
+                signer = signer.body(bytes);
+            }
 
-                // Build and attach the signature
-                let signature = signer.sign().map_err(Error::from)?;
-                let header_value = HeaderValue::from_str(&signature)
-                    .map_err(|e| reqwest_middleware::Error::Middleware(e.into()))?;
-                req.headers_mut().insert(TL_SIGNATURE_HEADER, header_value);
+            // Build and attach the signature
+            let signature = signer.sign().map_err(Error::from)?;
+            let header_value = HeaderValue::from_str(&signature)
+                .map_err(|e| reqwest_middleware::Error::Middleware(e.into()))?;
+            req.headers_mut().insert(TL_SIGNATURE_HEADER, header_value);
         }
 
         next.run(req, extensions).await

@@ -83,7 +83,7 @@ impl ErrorResponse {
                 status: http_status,
                 trace_id: Some(trace_id),
                 detail: Some(detail),
-                errors,
+                errors: errors.unwrap_or_default(),
             },
             ErrorResponse::V1ErrorResponse {
                 error,
@@ -96,7 +96,8 @@ impl ErrorResponse {
                 trace_id: None,
                 detail: error_description,
                 errors: error_details
-                    .map(|errors| errors.into_iter().map(|(k, v)| (k, vec![v])).collect()),
+                    .map(|errors| errors.into_iter().map(|(k, v)| (k, vec![v])).collect())
+                    .unwrap_or_default(),
             },
         }
     }
@@ -169,11 +170,9 @@ mod tests {
         assert_eq!(api_error.detail.as_deref(), Some("description"));
         assert_eq!(
             api_error.errors,
-            Some(
-                [("reason".to_string(), vec!["yes".to_string()])]
-                    .into_iter()
-                    .collect()
-            )
+            [("reason".to_string(), vec!["yes".to_string()])]
+                .into_iter()
+                .collect()
         );
         assert_eq!(api_error.trace_id, None);
     }
@@ -220,14 +219,12 @@ mod tests {
         assert_eq!(api_error.detail.as_deref(), Some("Some more details"));
         assert_eq!(
             api_error.errors,
-            Some(
-                [(
-                    "reason".to_string(),
-                    vec!["one".to_string(), "two".to_string()]
-                )]
-                .into_iter()
-                .collect()
-            )
+            [(
+                "reason".to_string(),
+                vec!["one".to_string(), "two".to_string()]
+            )]
+            .into_iter()
+            .collect()
         );
         assert_eq!(api_error.trace_id, Some("trace-id".to_string()));
     }
@@ -260,7 +257,7 @@ mod tests {
         assert_eq!(api_error.r#type, None);
         assert_eq!(api_error.title, "non-conforming error text");
         assert_eq!(api_error.detail.as_deref(), None);
-        assert_eq!(api_error.errors, None);
+        assert_eq!(api_error.errors, HashMap::new());
         assert_eq!(api_error.trace_id, None);
     }
 }

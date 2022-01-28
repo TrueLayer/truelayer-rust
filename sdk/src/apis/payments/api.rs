@@ -5,6 +5,7 @@ use crate::{
     },
     Error,
 };
+use reqwest::Url;
 use std::sync::Arc;
 
 /// TrueLayer payments APIs client.
@@ -93,7 +94,7 @@ impl PaymentsApi {
             payment_id, payment_token, return_uri
         )));
 
-        new_uri.into()
+        new_uri
     }
 }
 

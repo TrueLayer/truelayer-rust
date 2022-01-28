@@ -135,7 +135,7 @@ impl TrueLayerClientBuilder {
         mut self,
         retry_policy: impl Into<Option<Arc<dyn RetryPolicy + Send + Sync + 'static>>>,
     ) -> Self {
-        self.retry_policy = retry_policy.map(BoxedRetryPolicy);
+        self.retry_policy = retry_policy.into().map(BoxedRetryPolicy);
         self
     }
 
