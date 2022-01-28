@@ -4,8 +4,8 @@ use reqwest::{header::HeaderValue, Method, Request, Response};
 use reqwest_middleware::{Middleware, Next};
 use task_local_extensions::Extensions;
 
-const IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
-const TL_SIGNATURE_HEADER: &str = "Tl-Signature";
+static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
+static TL_SIGNATURE_HEADER: &str = "Tl-Signature";
 
 /// Middleware to attach signatures to all outgoing `POST`, `PUT` and `DELETE` requests.
 ///
@@ -24,8 +24,7 @@ impl Middleware for SigningMiddleware {
         next: Next<'_>,
     ) -> reqwest_middleware::Result<Response> {
         // Sign only POST, PUT and DELETE requests
-        match *req.method() {
-            Method::POST | Method::PUT | Method::DELETE => {
+        if let Method::POST | Method::PUT | Method::DELETE = *req.method() {
                 // Include method and path
                 let mut signer = truelayer_signing::sign_with_pem(
                     &self.certificate_id,
@@ -52,8 +51,6 @@ impl Middleware for SigningMiddleware {
                 let header_value = HeaderValue::from_str(&signature)
                     .map_err(|e| reqwest_middleware::Error::Middleware(e.into()))?;
                 req.headers_mut().insert(TL_SIGNATURE_HEADER, header_value);
-            }
-            _ => {}
         }
 
         next.run(req, extensions).await

@@ -45,9 +45,9 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
     };
 
-    const MOCK_CLIENT_ID: &str = "mock-client-id";
-    const MOCK_CLIENT_SECRET: &str = "mock-client-secret";
-    const MOCK_ACCESS_TOKEN: &str = "mock-access-token";
+    static MOCK_CLIENT_ID: &str = "mock-client-id";
+    static MOCK_CLIENT_SECRET: &str = "mock-client-secret";
+    static MOCK_ACCESS_TOKEN: &str = "mock-access-token";
 
     fn mock_authenticator(auth_url: &str) -> Authenticator {
         let credentials = Credentials::ClientCredentials {

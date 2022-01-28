@@ -36,14 +36,12 @@ impl Middleware for RetryIdempotentMiddleware {
     ) -> reqwest_middleware::Result<Response> {
         let is_idempotent = match *req.method() {
             Method::GET => true,
-            Method::POST | Method::PUT | Method::DELETE
-                if req
+            Method::POST | Method::PUT | Method::DELETE  =>
+            {
+               req
                     .headers()
                     .get("Idempotency-Key")
-                    .map_or(false, |v| !v.is_empty()) =>
-            {
-                true
-            }
+                    .map_or(false, |v| !v.is_empty())            }
             _ => false,
         };
 

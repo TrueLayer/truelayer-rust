@@ -25,15 +25,15 @@ impl Authenticator {
 
         // Spawn a long running task which will running forever until the authenticator is dropped
         let (tx, rx) = mpsc::unbounded_channel();
-        #[cfg(test)]
+        if cfg!(test) {
         tests::mocked_time::spawn(async move {
             // We need to propagate the mocked time task-local in order to control time in the tests
             process_loop(state, rx).await;
         });
-        #[cfg(not(test))]
+        } else {
         tokio::spawn(async move {
             process_loop(state, rx).await;
-        });
+        });}
 
         Self { tx }
     }
@@ -45,7 +45,7 @@ impl Authenticator {
     ///
     /// Concurrent calls to `get_access_token` are batched into one single request to TrueLayer APIs.
     ///
-    /// If the client is already authenticated, this is a noop.
+    /// If the client is already authenticated, this is a no-op.
     pub async fn get_access_token(&self) -> Result<AuthenticationResult, Error> {
         let (tx, rx) = oneshot::channel();
         self.tx.send(tx).unwrap();
@@ -105,8 +105,7 @@ async fn process_get_access_token(
 
     if res.token_type != "Bearer" {
         return Err(Error::Other(anyhow::anyhow!(
-            "Unsupported access token type: {0}. This is a bug in the SDK.",
-            res.token_type
+            "Unsupported access token type: {res.token_type}. This is a bug in the SDK.",
         )));
     }
 
@@ -213,10 +212,10 @@ mod tests {
         }
     }
 
-    const MOCK_CLIENT_ID: &str = "mock-client-id";
-    const MOCK_CLIENT_SECRET: &str = "mock-client-secret";
-    const MOCK_ACCESS_TOKEN: &str = "mock-access-token";
-    const MOCK_REFRESH_TOKEN: &str = "mock-refresh-token";
+    static MOCK_CLIENT_ID: &str = "mock-client-id";
+    static MOCK_CLIENT_SECRET: &str = "mock-client-secret";
+    static MOCK_ACCESS_TOKEN: &str = "mock-access-token";
+    static MOCK_REFRESH_TOKEN: &str = "mock-refresh-token";
 
     /// Setup a wiremock response that returns a mock access token in the format
     /// `{MOCK_ACCESS_TOKEN}-{count}`, where `count` is the number of requests sent to the mock server.

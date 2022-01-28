@@ -20,12 +20,12 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryPolicy};
 use reqwest_tracing::TracingMiddleware;
 use std::sync::Arc;
 
-const DEFAULT_AUTH_URL: &str = "https://auth.truelayer.com";
-const DEFAULT_PAYMENTS_URL: &str = "https://test-pay-api.truelayer.com";
-const DEFAULT_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer.com";
-const DEFAULT_SANDBOX_AUTH_URL: &str = "https://auth.truelayer-sandbox.com";
-const DEFAULT_SANDBOX_PAYMENTS_URL: &str = "https://test-pay-api.truelayer-sandbox.com";
-const DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer-sandbox.com";
+static DEFAULT_AUTH_URL: &str = "https://auth.truelayer.com";
+static DEFAULT_PAYMENTS_URL: &str = "https://test-pay-api.truelayer.com";
+static DEFAULT_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer.com";
+static DEFAULT_SANDBOX_AUTH_URL: &str = "https://auth.truelayer-sandbox.com";
+static DEFAULT_SANDBOX_PAYMENTS_URL: &str = "https://test-pay-api.truelayer-sandbox.com";
+static DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer-sandbox.com";
 
 /// Client for TrueLayer public APIs.
 ///
@@ -133,7 +133,7 @@ impl TrueLayerClientBuilder {
     /// To disable automatic retrying of failed requests, use `None`.
     pub fn with_retry_policy(
         mut self,
-        retry_policy: Option<Arc<dyn RetryPolicy + Send + Sync + 'static>>,
+        retry_policy: impl Into<Option<Arc<dyn RetryPolicy + Send + Sync + 'static>>>,
     ) -> Self {
         self.retry_policy = retry_policy.map(BoxedRetryPolicy);
         self

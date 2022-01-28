@@ -85,7 +85,7 @@ impl PaymentsApi {
         payment_id: &str,
         payment_token: &str,
         return_uri: &str,
-    ) -> String {
+    ) -> Url {
         let mut new_uri = self.inner.hpp_url.join("/payments").unwrap();
 
         new_uri.set_fragment(Some(&format!(
