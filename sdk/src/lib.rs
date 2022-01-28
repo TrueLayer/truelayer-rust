@@ -1,95 +1,13 @@
-use auth::{AccessToken, Authentication};
-use create_payment::Secrets;
-use reqwest::Url;
+//! Official TrueLayer Rust SDK.
 
-pub mod auth;
-pub mod create_payment;
-mod payment_status;
+#![deny(missing_debug_implementations)]
+#![forbid(unsafe_code)]
 
-/// Truelayer instance created with [TlBuilder].
-///
-/// This object stores configuraton for connection to TrueLayer.
-///
-/// It also handels any state, including HTTP-client and access tokens.
-pub struct Tl {
-    http_client: reqwest::Client,
-    secrets: Secrets,
-    auth_server: Authentication,
-    client: auth::Client,
-    environment_uri: Url,
-}
+pub mod apis;
+pub(crate) mod authenticator;
+pub mod client;
+pub mod error;
+mod middlewares;
 
-/// Builder pattern to construct a [Tl]
-pub struct TlBuilder {
-    auth_server: Option<Url>,
-    http_client: Option<reqwest::Client>,
-    secrets: Secrets,
-    client: auth::Client,
-    environment_uri: Option<Url>,
-}
-
-impl TlBuilder {
-    pub fn new(secrets: Secrets, client: auth::Client) -> Self {
-        Self {
-            auth_server: None,
-            http_client: None,
-            secrets,
-            client,
-            environment_uri: None,
-        }
-    }
-
-    pub fn with_auth_server(self, url: Url) -> Self {
-        Self {
-            auth_server: Some(url),
-            ..self
-        }
-    }
-
-    pub fn with_http_client(self, client: reqwest::Client) -> Self {
-        Self {
-            http_client: Some(client),
-            ..self
-        }
-    }
-
-    pub fn with_environment_uri(self, url: Url) -> Self {
-        Self {
-            environment_uri: Some(url),
-            ..self
-        }
-    }
-
-    pub fn build(self) -> Tl {
-        Tl {
-            http_client: self.http_client.unwrap_or_else(reqwest::Client::new),
-            secrets: self.secrets,
-            client: self.client,
-            auth_server: self
-                .auth_server
-                .map(Authentication::new)
-                .unwrap_or_default(),
-            environment_uri: self
-                .environment_uri
-                .unwrap_or_else(|| todo!("what's the default prod uri?")),
-        }
-    }
-}
-
-impl Tl {
-    #[tracing::instrument(skip(self))]
-    async fn access_token(&mut self) -> Result<&AccessToken, reqwest::Error> {
-        self.auth_server
-            .access_token(&self.client, &self.http_client)
-            .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
+pub use client::TrueLayerClient;
+pub use error::Error;
