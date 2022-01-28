@@ -1,5 +1,7 @@
 # truelayer-rust-sdk
 
+[![Build](https://github.com/TrueLayer/truelayer-rust-sdk/actions/workflows/build.yml/badge.svg)](https://github.com/TrueLayer/truelayer-rust-sdk/actions/workflows/build.yml)
+
 ## TODO
 
 - [ ] Check when to retry all http calls
