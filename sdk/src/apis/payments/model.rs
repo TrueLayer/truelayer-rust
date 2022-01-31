@@ -1,3 +1,6 @@
+use crate::{pollable::IsInTerminalState, Error, Pollable, TrueLayerClient};
+use anyhow::anyhow;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -18,6 +21,19 @@ pub struct CreatePaymentResponse {
     pub user: CreatePaymentUserResponse,
 }
 
+#[async_trait]
+impl Pollable for CreatePaymentResponse {
+    type Output = Payment;
+
+    async fn poll_once(&self, tl: &TrueLayerClient) -> Result<Self::Output, Error> {
+        tl.payments
+            .get_by_id(&self.id)
+            .await
+            .transpose()
+            .unwrap_or_else(|| Err(Error::Other(anyhow!("Payment returned 404 while polling"))))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreatePaymentUserResponse {
     pub id: String,
@@ -34,6 +50,33 @@ pub struct Payment {
     pub created_at: DateTime<Utc>,
     #[serde(flatten)]
     pub status: PaymentStatus,
+}
+
+#[async_trait]
+impl Pollable for Payment {
+    type Output = Payment;
+
+    async fn poll_once(&self, tl: &TrueLayerClient) -> Result<Self::Output, Error> {
+        tl.payments
+            .get_by_id(&self.id)
+            .await
+            .transpose()
+            .unwrap_or_else(|| Err(Error::Other(anyhow!("Payment returned 404 while polling"))))
+    }
+}
+
+impl IsInTerminalState for Payment {
+    /// A payment is considered to be in a terminal state if it is `Executed`, `Settled` or `Failed`.
+    fn is_in_terminal_state(&self) -> bool {
+        match self.status {
+            PaymentStatus::AuthorizationRequired { .. }
+            | PaymentStatus::Authorizing { .. }
+            | PaymentStatus::Authorized { .. } => false,
+            PaymentStatus::Executed { .. }
+            | PaymentStatus::Settled { .. }
+            | PaymentStatus::Failed { .. } => true,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]

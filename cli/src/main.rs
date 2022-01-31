@@ -9,6 +9,7 @@ use sdk::{
             PaymentMethodProviderType, PaymentMethodType, SchemeIdentifier, User,
         },
     },
+    pollable::{PollOptions, PollableUntilTerminalState},
     TrueLayerClient,
 };
 use url::Url;
@@ -94,6 +95,14 @@ async fn run() -> anyhow::Result<()> {
             .get_hosted_payments_page_link(&res.id, &res.payment_token, config.return_uri.as_str())
             .await
     );
+
+    tracing::info!("Begin waiting...");
+
+    let completed_payment = res
+        .poll_until_terminal_state(&tl, PollOptions::default())
+        .await?;
+
+    tracing::info!("{:?}", completed_payment);
 
     Ok(())
 }
