@@ -9,11 +9,16 @@ use std::{
 };
 use task_local_extensions::Extensions;
 
+static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
+
 /// Middleware that automatically retries transient failures only on idempotent requests.
 ///
 /// A request is considered idempotent if and only if:
-/// - Has a `GET` method, or
-/// - Has a `POST`, `PUT` or `DELETE` method *and* an `Idempotency-Key` header set
+/// - Has an idempotent method (`GET`, `HEAD`, `OPTIONS`, `TRACE`, `PUT` or `DELETE`), or
+/// - Has a `POST` or `PATCH` method *and* an `Idempotency-Key` header set.
+///
+/// For more information regarding idempotent methods, check section 4.2.2 of
+/// [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4.2.2).
 pub struct RetryIdempotentMiddleware {
     inner: RetryTransientMiddleware<DynRetryPolicy>,
 }
@@ -35,10 +40,15 @@ impl Middleware for RetryIdempotentMiddleware {
         next: Next<'_>,
     ) -> reqwest_middleware::Result<Response> {
         let is_idempotent = match *req.method() {
-            Method::GET => true,
-            Method::POST | Method::PUT | Method::DELETE => req
+            Method::GET
+            | Method::HEAD
+            | Method::OPTIONS
+            | Method::TRACE
+            | Method::PUT
+            | Method::DELETE => true,
+            Method::POST | Method::PATCH => req
                 .headers()
-                .get("Idempotency-Key")
+                .get(IDEMPOTENCY_KEY_HEADER)
                 .map_or(false, |v| !v.is_empty()),
             _ => false,
         };
@@ -103,21 +113,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retries_get() {
-        let (client, mock_server) = mock_client_and_server(true).await;
-
-        let res = client.get(mock_server.uri()).send().await.unwrap();
-        assert!(res.status().is_success());
-    }
-
-    #[tokio::test]
-    async fn retries_post_put_delete_with_idempotency_key() {
-        for method in [Method::POST, Method::PUT, Method::DELETE] {
+    async fn retries_idempotent_methods() {
+        for method in [
+            Method::GET,
+            Method::HEAD,
+            Method::OPTIONS,
+            Method::TRACE,
+            Method::PUT,
+            Method::DELETE,
+        ] {
             let (client, mock_server) = mock_client_and_server(true).await;
 
             let res = client
                 .request(method, mock_server.uri())
-                .header("Idempotency-Key", "some-idempotency-key")
                 .send()
                 .await
                 .unwrap();
@@ -126,8 +134,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn does_not_retry_post_put_delete_without_idempotency_key() {
-        for method in [Method::POST, Method::PUT, Method::DELETE] {
+    async fn retries_post_patch_with_idempotency_key() {
+        for method in [Method::POST, Method::PATCH] {
+            let (client, mock_server) = mock_client_and_server(true).await;
+
+            let res = client
+                .request(method, mock_server.uri())
+                .header(IDEMPOTENCY_KEY_HEADER, "some-idempotency-key")
+                .send()
+                .await
+                .unwrap();
+            assert!(res.status().is_success());
+        }
+    }
+
+    #[tokio::test]
+    async fn does_not_retry_post_patch_without_idempotency_key() {
+        for method in [Method::POST, Method::PATCH] {
             let (client, mock_server) = mock_client_and_server(false).await;
 
             let res = client
@@ -140,13 +163,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn does_not_retry_post_put_delete_with_empty_idempotency_key() {
-        for method in [Method::POST, Method::PUT, Method::DELETE] {
+    async fn does_not_retry_post_patch_with_empty_idempotency_key() {
+        for method in [Method::POST, Method::PATCH] {
             let (client, mock_server) = mock_client_and_server(false).await;
 
             let res = client
                 .request(method, mock_server.uri())
-                .header("Idempotency-Key", "")
+                .header(IDEMPOTENCY_KEY_HEADER, "")
                 .send()
                 .await
                 .unwrap();
