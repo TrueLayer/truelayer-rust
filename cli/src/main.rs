@@ -55,26 +55,36 @@ async fn run() -> anyhow::Result<()> {
     .build();
 
     // Create a new outgoing payment
-    let res = tl
-        .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
-                beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: "00000000-0000-0000-0000-000000000000".to_string(),
-                    account_holder_name: None,
+    let res = {
+        let mut res = tl
+            .payments
+            .create(CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethod::BankTransfer {
+                    provider_selection: ProviderSelection::UserSelected { filter: None },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: "00000000-0000-0000-0000-000000000000".to_string(),
+                        account_holder_name: None,
+                    },
                 },
-            },
-            user: User {
-                id: Some(Uuid::new_v4().to_string()),
-                name: Some("Some One".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-        })
-        .await?;
+                user: User {
+                    id: Some(Uuid::new_v4().to_string()),
+                    name: Some("Some One".to_string()),
+                    email: Some("some.one@email.com".to_string()),
+                    phone: None,
+                },
+            })
+            .await;
+
+        // Retry forever
+        loop {
+            match res {
+                Ok(x) => break x,
+                Err(e) => res = e.retry().await,
+            }
+        }
+    };
 
     tracing::info!("Created new payment: {}", res.id);
 

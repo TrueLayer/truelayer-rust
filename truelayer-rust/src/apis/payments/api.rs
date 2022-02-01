@@ -4,6 +4,7 @@ use crate::{
         TrueLayerClientInner,
     },
     common::IDEMPOTENCY_KEY_HEADER,
+    error::{retryable, RetryableError},
     Error,
 };
 use reqwest::Url;
@@ -35,23 +36,25 @@ impl PaymentsApi {
     )]
     pub async fn create(
         &self,
-        create_payment_request: &CreatePaymentRequest,
-    ) -> Result<CreatePaymentResponse, Error> {
-        // Generate a new random idempotency-key for this request
-        let idempotency_key = Uuid::new_v4();
+        create_payment_request: CreatePaymentRequest,
+    ) -> Result<CreatePaymentResponse, RetryableError<CreatePaymentResponse>> {
+        // Generate a new random idempotency key for this request
+        let idempotency_key = Uuid::new_v4().to_string();
 
-        let res = self
-            .inner
-            .client
-            .post(self.inner.payments_url.join("/payments").unwrap())
-            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
-            .json(create_payment_request)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let inner = self.inner.clone();
+        retryable!(|inner, create_payment_request, idempotency_key| {
+            let res = inner
+                .client
+                .post(inner.payments_url.join("/payments").unwrap())
+                .header(IDEMPOTENCY_KEY_HEADER, &idempotency_key)
+                .json(&create_payment_request)
+                .send()
+                .await?
+                .json()
+                .await?;
 
-        Ok(res)
+            Ok(res)
+        })
     }
 
     /// Gets the details of an existing payment.
@@ -119,8 +122,9 @@ mod tests {
     use reqwest::Url;
     use serde_json::json;
     use wiremock::{
+        http::HeaderName,
         matchers::{body_partial_json, header_exists, method, path},
-        Mock, MockServer, ResponseTemplate,
+        Mock, MockServer, Request, ResponseTemplate,
     };
 
     async fn mock_client_and_server() -> (TrueLayerClientInner, MockServer) {
@@ -187,7 +191,7 @@ mod tests {
             .await;
 
         let res = api
-            .create(&CreatePaymentRequest {
+            .create(CreatePaymentRequest {
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
                 payment_method: PaymentMethod::BankTransfer {
@@ -210,6 +214,60 @@ mod tests {
         assert_eq!(res.id, "payment-id");
         assert_eq!(res.payment_token, "payment-token");
         assert_eq!(res.user.id, "user-id");
+    }
+
+    #[tokio::test]
+    async fn retry_create_reuses_idempotency_key() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        Mock::given(method("POST"))
+            .and(path("/payments"))
+            .respond_with(|req: &Request| {
+                ResponseTemplate::new(500).set_body_json(json!({
+                    "error": req.headers.get(&HeaderName::from_string(IDEMPOTENCY_KEY_HEADER.to_string()).unwrap()).unwrap().to_string()
+                }))
+            })
+            .expect(2)
+            .mount(&mock_server)
+            .await;
+
+        let err1 = api
+            .create(CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethod::BankTransfer {
+                    provider_selection: ProviderSelection::UserSelected { filter: None },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: "merchant-account-id".to_string(),
+                        account_holder_name: None,
+                    },
+                },
+                user: User {
+                    id: Some("user-id".to_string()),
+                    name: None,
+                    email: None,
+                    phone: None,
+                },
+            })
+            .await
+            .expect_err("Expected error");
+
+        let idempotency_key_err1 = match err1.as_error() {
+            Error::ApiError(e) => e.title.clone(),
+            _ => panic!("Unexpected error"),
+        };
+
+        // Manually retry failed request
+        let err2 = err1.retry().await.expect_err("Expected error");
+
+        let idempotency_key_err2 = match err2.as_error() {
+            Error::ApiError(e) => e.title.clone(),
+            _ => panic!("Unexpected error"),
+        };
+
+        // Assert that the key has been reused
+        assert_eq!(idempotency_key_err1, idempotency_key_err2);
     }
 
     #[tokio::test]

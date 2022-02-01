@@ -1,6 +1,11 @@
 //! Standard errors used by all functions in the crate.
 
-use std::{collections::HashMap, fmt};
+use futures::future::BoxFuture;
+use std::{
+    collections::HashMap,
+    fmt,
+    fmt::{Debug, Display, Formatter},
+};
 
 /// Error collecting all possible failures of the TrueLayer client.
 #[derive(thiserror::Error, Debug)]
@@ -75,3 +80,69 @@ impl fmt::Display for ApiError {
         Ok(())
     }
 }
+
+pub type AsyncBoxFn<Res> =
+    Box<dyn FnMut() -> BoxFuture<'static, Result<Res, Error>> + Send + Sync + 'static>;
+
+/// Wrapper around an [`Error`](crate::error::Error) that allows easy retrying
+/// of the original request that caused the error.
+pub struct RetryableError<Res> {
+    error: Error,
+    f: AsyncBoxFn<Res>,
+}
+
+impl<Res> RetryableError<Res> {
+    pub(crate) async fn capture(mut f: AsyncBoxFn<Res>) -> Result<Res, Self> {
+        f().await.map_err(|error| Self { error, f })
+    }
+
+    pub async fn retry(mut self) -> Result<Res, Self> {
+        (*self.f)().await.map_err(|error| Self { error, ..self })
+    }
+
+    pub fn into_error(self) -> Error {
+        self.into()
+    }
+
+    pub fn as_error(&self) -> &Error {
+        &self.error
+    }
+}
+
+impl<Res> Debug for RetryableError<Res> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.error, f)
+    }
+}
+
+impl<Res> Display for RetryableError<Res> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.error, f)
+    }
+}
+
+impl<Res> std::error::Error for RetryableError<Res> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.error.source()
+    }
+}
+
+impl<Res> From<RetryableError<Res>> for Error {
+    fn from(e: RetryableError<Res>) -> Self {
+        e.error
+    }
+}
+
+/// Internal helper to build a new `RetryableError`.
+macro_rules! retryable {
+    (| $($var:ident),* | $exp:expr) => {
+        RetryableError::capture(Box::new(move || {
+            $( let $var = $var.clone(); )*
+
+            Box::pin(async move { $exp })
+        }))
+        .await
+    };
+}
+
+pub(crate) use retryable;
