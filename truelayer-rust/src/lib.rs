@@ -6,6 +6,7 @@
 pub mod apis;
 pub(crate) mod authenticator;
 pub mod client;
+mod common;
 pub mod error;
 mod middlewares;
 pub mod pollable;

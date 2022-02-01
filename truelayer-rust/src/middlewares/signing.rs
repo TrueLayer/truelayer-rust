@@ -1,11 +1,11 @@
-use crate::error::Error;
+use crate::{
+    common::{IDEMPOTENCY_KEY_HEADER, TL_SIGNATURE_HEADER},
+    error::Error,
+};
 use async_trait::async_trait;
 use reqwest::{header::HeaderValue, Method, Request, Response};
 use reqwest_middleware::{Middleware, Next};
 use task_local_extensions::Extensions;
-
-static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
-static TL_SIGNATURE_HEADER: &str = "Tl-Signature";
 
 /// Middleware to attach signatures to all outgoing `POST`, `PUT` and `DELETE` requests.
 ///
