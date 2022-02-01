@@ -1,6 +1,6 @@
-# truelayer-rust-sdk
+# truelayer-rust
 
-[![Build](https://github.com/TrueLayer/truelayer-rust-sdk/actions/workflows/build.yml/badge.svg)](https://github.com/TrueLayer/truelayer-rust-sdk/actions/workflows/build.yml)
+[![Build](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml/badge.svg)](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml)
 
 ## TODO
 

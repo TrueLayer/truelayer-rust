@@ -132,11 +132,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "config 0.11.0",
- "sdk",
  "serde 1.0.130",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "truelayer-rust",
  "url",
  "uuid",
 ]
@@ -1092,30 +1092,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "futures",
- "openssl",
- "reqwest",
- "reqwest-middleware",
- "reqwest-retry",
- "reqwest-tracing",
- "retry-policies",
- "serde 1.0.130",
- "serde_json",
- "task-local-extensions",
- "thiserror",
- "tokio",
- "tracing",
- "truelayer-signing",
- "wiremock",
-]
-
-[[package]]
 name = "security-framework"
 version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1457,6 +1433,30 @@ dependencies = [
  "thread_local",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "truelayer-rust"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures",
+ "openssl",
+ "reqwest",
+ "reqwest-middleware",
+ "reqwest-retry",
+ "reqwest-tracing",
+ "retry-policies",
+ "serde 1.0.130",
+ "serde_json",
+ "task-local-extensions",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "truelayer-signing",
+ "wiremock",
 ]
 
 [[package]]
