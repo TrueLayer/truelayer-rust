@@ -1,7 +1,7 @@
 mod log;
 
 use anyhow::Context;
-use sdk::{
+use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
