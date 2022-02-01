@@ -10,6 +10,7 @@ use crate::{
     middlewares::{
         authentication::AuthenticationMiddleware,
         error_handling::ErrorHandlingMiddleware,
+        inject_user_agent::InjectUserAgentMiddleware,
         retry_idempotent::{DynRetryPolicy, RetryIdempotentMiddleware},
         signing::SigningMiddleware,
     },
@@ -187,6 +188,7 @@ fn build_client_with_middleware(
     signing_middleware: Option<SigningMiddleware>,
 ) -> ClientWithMiddleware {
     let mut builder = reqwest_middleware::ClientBuilder::new(client)
+        .with(InjectUserAgentMiddleware::new())
         .with(TracingMiddleware)
         .with(ErrorHandlingMiddleware);
 
