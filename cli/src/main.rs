@@ -5,8 +5,7 @@ use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
-            Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, PaymentMethodProvider,
-            PaymentMethodProviderType, PaymentMethodType, SchemeIdentifier, User,
+            Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, ProviderSelection, User,
         },
     },
     pollable::{PollOptions, PollableUntilTerminalState},
@@ -62,18 +61,11 @@ async fn run() -> anyhow::Result<()> {
             &CreatePaymentRequest {
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
-                payment_method: PaymentMethod {
-                    r#type: PaymentMethodType::BankTransfer,
-                    provider: PaymentMethodProvider {
-                        r#type: PaymentMethodProviderType::UserSelection,
-                    },
-                },
-                beneficiary: Beneficiary::ExternalAccount {
-                    name: "Some One".to_string(),
-                    reference: "testrustsdk".to_string(),
-                    scheme_identifier: SchemeIdentifier::SortCodeAccountNumber {
-                        sort_code: "123456".to_string(),
-                        account_number: "12345678".to_string(),
+                payment_method: PaymentMethod::BankTransfer {
+                    provider_selection: ProviderSelection::UserSelected { filter: None },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: "00000000-0000-0000-0000-000000000000".to_string(),
+                        account_holder_name: None,
                     },
                 },
                 user: User {

@@ -10,7 +10,6 @@ pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
     pub payment_method: PaymentMethod,
-    pub beneficiary: Beneficiary,
     pub user: User,
 }
 
@@ -44,7 +43,6 @@ pub struct Payment {
     pub id: String,
     pub amount_in_minor: u64,
     pub currency: Currency,
-    pub beneficiary: Beneficiary,
     pub user: User,
     pub payment_method: PaymentMethod,
     pub created_at: DateTime<Utc>,
@@ -90,12 +88,11 @@ pub enum PaymentStatus {
         authorization_flow: Option<AuthorizationFlow>,
     },
     Executed {
-        source_of_funds: SourceOfFunds,
         executed_at: DateTime<Utc>,
         authorization_flow: Option<AuthorizationFlow>,
     },
     Settled {
-        source_of_funds: SourceOfFunds,
+        payment_source: PaymentSource,
         executed_at: DateTime<Utc>,
         settled_at: DateTime<Utc>,
         authorization_flow: Option<AuthorizationFlow>,
@@ -112,12 +109,14 @@ pub enum PaymentStatus {
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     Gbp,
+    Eur,
 }
 
 impl Display for Currency {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Currency::Gbp => write!(f, "GBP"),
+            Currency::Eur => write!(f, "EUR"),
         }
     }
 }
@@ -131,55 +130,75 @@ pub enum FailureStage {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+pub struct PaymentSource {
+    pub id: String,
+    pub account_identifiers: Option<Vec<AccountIdentifier>>,
+    pub account_holder_name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum Beneficiary {
-    MerchantAccount {
-        id: String,
-        name: Option<String>,
-    },
-    ExternalAccount {
-        name: String,
-        reference: String,
-        scheme_identifier: SchemeIdentifier,
+pub enum PaymentMethod {
+    BankTransfer {
+        provider_selection: ProviderSelection,
+        beneficiary: Beneficiary,
     },
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum SchemeIdentifier {
+pub enum Beneficiary {
+    MerchantAccount {
+        merchant_account_id: String,
+        account_holder_name: Option<String>,
+    },
+    ExternalAccount {
+        account_holder_name: Option<String>,
+        reference: String,
+        account_identifier: AccountIdentifier,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AccountIdentifier {
     SortCodeAccountNumber {
         sort_code: String,
         account_number: String,
     },
+    Iban {
+        iban: String,
+    },
+    Bban {
+        bban: String,
+    },
+    Nrb {
+        nrb: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct PaymentMethod {
-    pub r#type: PaymentMethodType,
-    pub provider: PaymentMethodProvider,
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProviderSelection {
+    UserSelected {
+        filter: Option<ProviderFilter>,
+    },
+    Preselected {
+        provider_id: String,
+        scheme_id: String,
+        remitter: Option<Remitter>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum PaymentMethodType {
-    BankTransfer,
-}
-
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct PaymentMethodProvider {
-    pub r#type: PaymentMethodProviderType,
-}
-
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum PaymentMethodProviderType {
-    UserSelection,
-    Preselection,
+pub struct Remitter {
+    account_holder_name: Option<String>,
+    account_identifier: Option<AccountIdentifier>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct ProviderFilter {
-    pub countries: Option<Vec<String>>,
+    pub countries: Option<Vec<CountryCode>>,
     pub release_channel: Option<ReleaseChannel>,
     pub customer_segments: Option<Vec<CustomerSegment>>,
     pub provider_ids: Option<Vec<String>>,
@@ -187,6 +206,15 @@ pub struct ProviderFilter {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CountryCode {
+    GB,
+    FR,
+    IE,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum ReleaseChannel {
     GeneralAvailability,
     PublicBeta,
@@ -194,6 +222,7 @@ pub enum ReleaseChannel {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum CustomerSegment {
     Retail,
     Business,
@@ -203,16 +232,6 @@ pub enum CustomerSegment {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct ProviderFilterExcludes {
     pub provider_ids: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum SourceOfFunds {
-    ExternalAccount {
-        scheme_identifiers: Vec<SchemeIdentifier>,
-        external_account_id: Option<String>,
-        account_holder_name: Option<String>,
-    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -246,7 +265,7 @@ pub struct Provider {
     pub icon_uri: Option<String>,
     pub logo_uri: Option<String>,
     pub bg_color: Option<String>,
-    pub country_code: Option<String>,
+    pub country_code: Option<CountryCode>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -272,7 +291,7 @@ pub enum ProviderSelectionSupported {
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RedirectSupported {
     NotSupported,
-    Supported { return_uri: Option<String> },
+    Supported { return_uri: String },
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]

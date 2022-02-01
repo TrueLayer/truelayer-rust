@@ -105,8 +105,7 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{
-                Beneficiary, Currency, PaymentMethod, PaymentMethodProvider,
-                PaymentMethodProviderType, PaymentMethodType, PaymentStatus, User,
+                Beneficiary, Currency, PaymentMethod, PaymentStatus, ProviderSelection, User,
             },
         },
         authenticator::Authenticator,
@@ -160,13 +159,13 @@ mod tests {
                 "currency": "GBP",
                 "payment_method": {
                     "type": "bank_transfer",
-                    "provider": {
-                        "type": "user_selection"
-                    }
-                },
-                "beneficiary": {
-                    "type": "merchant_account",
-                    "id": "merchant-account-id"
+                    "provider_selection": {
+                        "type": "user_selected"
+                    },
+                    "beneficiary": {
+                        "type": "merchant_account",
+                        "merchant_account_id": "merchant-account-id"
+                    },
                 },
                 "user": {
                     "id": "user-id"
@@ -188,15 +187,12 @@ mod tests {
                 &CreatePaymentRequest {
                     amount_in_minor: 100,
                     currency: Currency::Gbp,
-                    payment_method: PaymentMethod {
-                        r#type: PaymentMethodType::BankTransfer,
-                        provider: PaymentMethodProvider {
-                            r#type: PaymentMethodProviderType::UserSelection,
+                    payment_method: PaymentMethod::BankTransfer {
+                        provider_selection: ProviderSelection::UserSelected { filter: None },
+                        beneficiary: Beneficiary::MerchantAccount {
+                            merchant_account_id: "merchant-account-id".to_string(),
+                            account_holder_name: None,
                         },
-                    },
-                    beneficiary: Beneficiary::MerchantAccount {
-                        id: "merchant-account-id".to_string(),
-                        name: None,
                     },
                     user: User {
                         id: Some("user-id".to_string()),
@@ -227,14 +223,14 @@ mod tests {
                 "id": payment_id,
                 "amount_in_minor": 100,
                 "currency": "GBP",
-                "beneficiary": {
-                    "type": "merchant_account",
-                    "id": "merchant-account-id",
-                },
                 "payment_method": {
                     "type": "bank_transfer",
-                    "provider": {
-                        "type": "user_selection"
+                    "provider_selection": {
+                        "type": "user_selected"
+                    },
+                    "beneficiary": {
+                        "type": "merchant_account",
+                        "merchant_account_id": "merchant-account-id",
                     }
                 },
                 "user": {
@@ -253,18 +249,12 @@ mod tests {
         assert_eq!(payment.amount_in_minor, 100);
         assert_eq!(payment.currency, Currency::Gbp);
         assert_eq!(
-            payment.beneficiary,
-            Beneficiary::MerchantAccount {
-                id: "merchant-account-id".to_string(),
-                name: None
-            }
-        );
-        assert_eq!(
             payment.payment_method,
-            PaymentMethod {
-                r#type: PaymentMethodType::BankTransfer,
-                provider: PaymentMethodProvider {
-                    r#type: PaymentMethodProviderType::UserSelection
+            PaymentMethod::BankTransfer {
+                provider_selection: ProviderSelection::UserSelected { filter: None },
+                beneficiary: Beneficiary::MerchantAccount {
+                    merchant_account_id: "merchant-account-id".to_string(),
+                    account_holder_name: None
                 }
             }
         );
