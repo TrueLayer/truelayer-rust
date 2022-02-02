@@ -1,3 +1,4 @@
+use crate::common::IDEMPOTENCY_KEY_HEADER;
 use async_trait::async_trait;
 use reqwest::{Method, Request, Response};
 use reqwest_middleware::{Middleware, Next};
@@ -8,8 +9,6 @@ use std::{
     sync::Arc,
 };
 use task_local_extensions::Extensions;
-
-static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 
 /// Middleware that automatically retries transient failures only on idempotent requests.
 ///

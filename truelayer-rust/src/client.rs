@@ -7,6 +7,11 @@ use crate::{
         TrueLayerClientInner,
     },
     authenticator::Authenticator,
+    common::{
+        DEFAULT_AUTH_URL, DEFAULT_HOSTED_PAYMENTS_PAGE_URL, DEFAULT_PAYMENTS_URL,
+        DEFAULT_SANDBOX_AUTH_URL, DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL,
+        DEFAULT_SANDBOX_PAYMENTS_URL,
+    },
     middlewares::{
         authentication::AuthenticationMiddleware,
         error_handling::ErrorHandlingMiddleware,
@@ -20,13 +25,6 @@ use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, RetryPolicy};
 use reqwest_tracing::TracingMiddleware;
 use std::sync::Arc;
-
-static DEFAULT_AUTH_URL: &str = "https://auth.truelayer.com";
-static DEFAULT_PAYMENTS_URL: &str = "https://test-pay-api.truelayer.com";
-static DEFAULT_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer.com";
-static DEFAULT_SANDBOX_AUTH_URL: &str = "https://auth.truelayer-sandbox.com";
-static DEFAULT_SANDBOX_PAYMENTS_URL: &str = "https://test-pay-api.truelayer-sandbox.com";
-static DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer-sandbox.com";
 
 /// Client for TrueLayer public APIs.
 ///

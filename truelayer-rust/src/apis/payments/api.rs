@@ -3,10 +3,12 @@ use crate::{
         payments::{CreatePaymentRequest, CreatePaymentResponse, Payment},
         TrueLayerClientInner,
     },
+    common::IDEMPOTENCY_KEY_HEADER,
     Error,
 };
 use reqwest::Url;
 use std::sync::Arc;
+use uuid::Uuid;
 
 /// TrueLayer payments APIs client.
 #[derive(Clone, Debug)]
@@ -25,7 +27,7 @@ impl PaymentsApi {
     /// for more details on the idempotency key.
     #[tracing::instrument(
         name = "Create Payment",
-        skip(self, create_payment_request, idempotency_key),
+        skip(self, create_payment_request),
         fields(
             amount_in_minor = create_payment_request.amount_in_minor,
             currency = %create_payment_request.currency,
@@ -34,13 +36,15 @@ impl PaymentsApi {
     pub async fn create(
         &self,
         create_payment_request: &CreatePaymentRequest,
-        idempotency_key: &str,
     ) -> Result<CreatePaymentResponse, Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
         let res = self
             .inner
             .client
             .post(self.inner.payments_url.join("/payments").unwrap())
-            .header("Idempotency-Key", idempotency_key)
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .json(create_payment_request)
             .send()
             .await?
@@ -115,7 +119,7 @@ mod tests {
     use reqwest::Url;
     use serde_json::json;
     use wiremock::{
-        matchers::{body_partial_json, header, method, path},
+        matchers::{body_partial_json, header_exists, method, path},
         Mock, MockServer, ResponseTemplate,
     };
 
@@ -153,7 +157,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/payments"))
-            .and(header("Idempotency-Key", "idempotency-key"))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({
                 "amount_in_minor": 100,
                 "currency": "GBP",
@@ -183,26 +187,23 @@ mod tests {
             .await;
 
         let res = api
-            .create(
-                &CreatePaymentRequest {
-                    amount_in_minor: 100,
-                    currency: Currency::Gbp,
-                    payment_method: PaymentMethod::BankTransfer {
-                        provider_selection: ProviderSelection::UserSelected { filter: None },
-                        beneficiary: Beneficiary::MerchantAccount {
-                            merchant_account_id: "merchant-account-id".to_string(),
-                            account_holder_name: None,
-                        },
-                    },
-                    user: User {
-                        id: Some("user-id".to_string()),
-                        name: None,
-                        email: None,
-                        phone: None,
+            .create(&CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethod::BankTransfer {
+                    provider_selection: ProviderSelection::UserSelected { filter: None },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: "merchant-account-id".to_string(),
+                        account_holder_name: None,
                     },
                 },
-                "idempotency-key",
-            )
+                user: User {
+                    id: Some("user-id".to_string()),
+                    name: None,
+                    email: None,
+                    phone: None,
+                },
+            })
             .await
             .unwrap();
 
