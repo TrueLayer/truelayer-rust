@@ -1,32 +1,106 @@
 # truelayer-rust
 
+[![License](https://img.shields.io/:license-mit-blue.svg)](https://truelayer.mit-license.org/)
 [![Build](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml/badge.svg)](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml)
 
-## TODO
+[![Crates.io](https://img.shields.io/crates/v/truelayer-rust)](https://crates.io/crates/truelayer-rust)
+[![Docs.rs](https://img.shields.io/docsrs/truelayer-rust?label=docs.rs)](https://docs.rs/truelayer-rust/latest/truelayer-rust)
 
-- [ ] Check when to retry all http calls
-- [ ] Review logs
-- [ ] Right now we propagate `reqwest::error` to the caller.
-      Instead, we should analyze this error and map it to a `thiserror:Error` type.
-- [ ] mark everything related to the API (enum, structs) as non exhaustive,
-      since field can be always added.
-- [ ] handle of fields of the requests and responses. Right now only mandatory fields (and a few others are handled).
-- [ ] add tests by mocking the API.
+The official [TrueLayer](https://truelayer.com) Rust client provides convenient access to TrueLayer APIs from applications built with Rust.
 
-## Configuration
+## Installation
 
-Configuration is done by placing a `config.json` file inside the working directory.
-The config file is the same of the Insomnia Environment. For example:
+Add the latest version of the library to your project's `Cargo.toml`.
 
-```json
-{
-  "CLIENT_ID": "marco-35022f",
-  "CLIENT_SECRET": "542734d9-1dec-491c-bd57-424289682c76",
-  "RETURN_URI": "http://localhost:3000/callback",
-  "AUTH_SERVER_URI": "https://auth.t7r.dev",
-  "ENVIRONMENT_URI": "https://test-pay-api.t7r.dev",
-  "REQUIRE_JWS": true,
-  "CERTIFICATE_ID": "h28d752d-32cd-8s31-834a-k808fh32ta07",
-  "PRIVATE_KEY": "-----BEGIN EC PRIVATE KEY-----\nHIHcAgEBBEIACor8eEyj4Zd5/BABF1uGIhwEBA+8mLpMBOiAxgyzeLDOUxPSIiRk\nvQcy/NftmEEvtNsd+romCg3aX9vd+nFKyLGgBoYFK4EWACOhlYkDgKFMBNFc+JlQ\nh29VuHEDTj9kFxcf6Rm6P1lmZXW4SIeM+N296ERCqrAkzHWPqIi76HYQQ9yOKe8o\n9vwGABFjehWGnGu1JgHVUW2vHAxV+kzmrSex5+YmAygh+XM/m6gp5RjSITajx5Yy\nihH+Jk4yQejBV/+wMyX8dbkhoao/PMhQOPVJ1zWUIg==\n-----END EC PRIVATE KEY-----"
-}
+```toml
+[dependencies]
+truelayer-rust = "0.1" # TODO: update version
 ```
+
+Alternatively, you can use [`cargo-edit`](https://crates.io/crates/cargo-edit) if you have it already installed:
+
+```shell
+cargo add truelayer-rust
+```
+
+## Documentation
+
+For a comprehensive list of examples, check out the official TrueLayer [API documentation](https://docs.truelayer.com).
+
+For the full API reference of this crate, go to [Docs.rs](https://docs.rs/truelayer-rust/latest/truelayer-rust).
+
+## Usage
+
+### Prerequisites
+
+First [sign up](https://console.truelayer.com/) for a developer account. Follow the instructions to set up a new application and obtain your Client ID and Secret. Once the application has been created you must add your application redirected URIs in order to test your integration end-to-end.
+
+Next, generate a signing key pair used to sign API requests.
+
+To generate a private key, run:
+
+```sh
+docker run --rm -v ${PWD}:/out -w /out -it alpine/openssl ecparam -genkey -name secp521r1 -noout -out ec512-private-key.pem
+```
+
+To obtain the public key, run:
+
+```sh
+docker run --rm -v ${PWD}:/out -w /out -it alpine/openssl ec -in ec512-private-key.pem -pubout -out ec512-public-key.pem
+```
+
+
+### Configure Settings
+
+
+### Initialize TrueLayerClient
+
+> TODO
+
+### Create a payment
+
+> TODO
+### Build a link to our hosted createPaymentResponse page
+
+> TODO
+
+## Building locally
+
+## Testing
+
+### Unit and integration tests
+
+You can use `cargo` to run the tests locally:
+
+```shell
+cargo test --workspace
+```
+
+### Acceptance tests
+
+To execute tests against TrueLayer sandbox environment, you should set the below environment variables:
+- `TL_CLIENT_ID`
+- `TL_CLIENT_SECRET`
+- `TL_SIGNING_KEY_ID`
+- `TL_SIGNING_PRIVATE_KEY`
+
+and finally run:
+
+> TODO
+
+## Code linting
+
+To enforce coding style guidelines the project uses [`rustfmt`](https://rust-lang.github.io/rustfmt/).
+
+Bear in mind that the above checks are enforced at CI time, thus
+the builds will fail if not compliant.
+
+## Contributing
+
+Contributions are always welcome!
+
+Please adhere to this project's [code of conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE)
