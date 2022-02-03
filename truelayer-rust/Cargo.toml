@@ -22,6 +22,7 @@ truelayer-signing = "0.1"
 uuid = "0.8.2"
 
 [dev-dependencies]
+actix-web = "=4.0.0-rc.2"
 futures = "0.3"
 openssl = "0.10"
 wiremock = "0.5"
