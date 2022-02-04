@@ -16,8 +16,8 @@ use uuid::Uuid;
 struct MockServerConfiguration {
     client_id: String,
     client_secret: String,
-    certificate_id: String,
-    certificate_public_key: Vec<u8>,
+    signing_key_id: String,
+    signing_public_key: Vec<u8>,
     access_token: String,
 }
 
@@ -33,14 +33,14 @@ impl TrueLayerMockServer {
     pub async fn start(
         client_id: &str,
         client_secret: &str,
-        certificate_id: &str,
-        certificate_public_key: Vec<u8>,
+        signing_key_id: &str,
+        signing_public_key: Vec<u8>,
     ) -> Self {
         let configuration = MockServerConfiguration {
             client_id: client_id.to_string(),
             client_secret: client_secret.to_string(),
-            certificate_id: certificate_id.to_string(),
-            certificate_public_key,
+            signing_key_id: signing_key_id.to_string(),
+            signing_public_key,
             access_token: Uuid::new_v4().to_string(),
         };
 

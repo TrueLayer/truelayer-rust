@@ -58,7 +58,7 @@ pub struct TrueLayerClientBuilder {
     payments_url: Url,
     hpp_url: Url,
     credentials: Credentials,
-    certificate: Option<(String, Vec<u8>)>,
+    signing_key: Option<(String, Vec<u8>)>,
 }
 
 impl TrueLayerClientBuilder {
@@ -73,7 +73,7 @@ impl TrueLayerClientBuilder {
             payments_url: Url::parse(DEFAULT_PAYMENTS_URL).unwrap(),
             hpp_url: Url::parse(DEFAULT_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
             credentials,
-            certificate: None,
+            signing_key: None,
         }
     }
 
@@ -95,12 +95,12 @@ impl TrueLayerClientBuilder {
         let auth_middleware = Some(AuthenticationMiddleware {
             authenticator: authenticator.clone(),
         });
-        let signing_middleware = self.certificate.map(
-            |(certificate_id, certificate_private_key)| SigningMiddleware {
-                certificate_id,
-                certificate_private_key,
-            },
-        );
+        let signing_middleware = self
+            .signing_key
+            .map(|(key_id, private_key)| SigningMiddleware {
+                key_id,
+                private_key,
+            });
 
         // Build the actual TL client
         let inner = Arc::new(TrueLayerClientInner {
@@ -138,10 +138,12 @@ impl TrueLayerClientBuilder {
         self
     }
 
-    /// Configures a certificate for [request signing](https://docs.truelayer.com/docs/paydirect-sign-requests).
+    /// Configures a signing key for [request signing](https://docs.truelayer.com/docs/paydirect-sign-requests).
     /// Signing is required for some operations like initiating a new payment.
-    pub fn with_certificate(mut self, certificate_id: &str, private_key_pem: Vec<u8>) -> Self {
-        self.certificate = Some((certificate_id.to_string(), private_key_pem));
+    ///
+    /// The private key is expected to be PEM encoded.
+    pub fn with_signing_key(mut self, key_id: &str, private_key: Vec<u8>) -> Self {
+        self.signing_key = Some((key_id.to_string(), private_key));
         self
     }
 
