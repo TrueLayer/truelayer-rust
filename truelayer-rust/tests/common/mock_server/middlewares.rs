@@ -1,21 +1,24 @@
 use crate::common::mock_server::MockServerConfiguration;
-use actix_web::body::BoxBody;
-use actix_web::dev::{Payload, Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::error::PayloadError;
-use actix_web::web::{Bytes, BytesMut};
-use actix_web::{Error, HttpMessage, HttpResponse};
+use actix_web::{
+    body::BoxBody,
+    dev::{Payload, Service, ServiceRequest, ServiceResponse, Transform},
+    error::PayloadError,
+    web::{Bytes, BytesMut},
+    Error, HttpMessage, HttpResponse,
+};
 use anyhow::anyhow;
-use futures::future::{LocalBoxFuture, Ready};
-use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt};
-use std::cell::RefCell;
-use std::future::Future;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use futures::{
+    future::{LocalBoxFuture, Ready},
+    FutureExt, StreamExt, TryFutureExt, TryStreamExt,
+};
+use std::{
+    future::Future,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 /// Middleware to check that all the requests contain the right user agent header
-pub(super) async fn validate_user_agent(
-    req: ServiceRequest,
-) -> Result<ServiceRequest, anyhow::Error> {
+pub(super) async fn validate_user_agent(req: &mut ServiceRequest) -> Result<(), anyhow::Error> {
     // Check that the User-Agent header is present
     anyhow::ensure!(
         req.headers()
@@ -26,13 +29,11 @@ pub(super) async fn validate_user_agent(
         "Invalid User-Agent"
     );
 
-    Ok(req)
+    Ok(())
 }
 
 /// Ensures that the incoming request has an idempotency key set
-pub(super) async fn ensure_idempotency_key(
-    req: ServiceRequest,
-) -> Result<ServiceRequest, anyhow::Error> {
+pub(super) async fn ensure_idempotency_key(req: &mut ServiceRequest) -> Result<(), anyhow::Error> {
     anyhow::ensure!(
         req.headers()
             .get("Idempotency-Key")
@@ -42,17 +43,17 @@ pub(super) async fn ensure_idempotency_key(
         "Invalid or missing Idempotency Key"
     );
 
-    Ok(req)
+    Ok(())
 }
 
 /// Validates a full request signature
 pub(super) fn validate_signature(
     configuration: MockServerConfiguration,
     require_idempotency_key: bool,
-) -> impl Fn(ServiceRequest) -> LocalBoxFuture<'static, Result<ServiceRequest, anyhow::Error>> {
+) -> impl Fn(&mut ServiceRequest) -> LocalBoxFuture<'_, Result<(), anyhow::Error>> {
     let configuration = Arc::new(configuration);
 
-    move |mut req: ServiceRequest| {
+    move |req: &mut ServiceRequest| {
         let configuration = configuration.clone();
 
         Box::pin(async move {
@@ -89,6 +90,10 @@ pub(super) fn validate_signature(
                 .map(|v| v.to_str())
                 .transpose()?
                 .ok_or_else(|| anyhow!("Missing required signature"))?;
+            if truelayer_signing::extract_jws_header(signature)?.kid != configuration.certificate_id
+            {
+                return Err(anyhow!("Invalid key id"));
+            }
             verifier.body(&body).verify(signature)?;
 
             // Put the body back into the request so that it can be consumed by other middlewares
@@ -99,8 +104,29 @@ pub(super) fn validate_signature(
                 .boxed(),
             });
 
-            Ok(req)
+            Ok(())
         })
+    }
+}
+
+/// Helper trait used to circumvent a limitation of Rust's Higher Ranked Trait Bounds
+/// in the implementation of `MiddlewareFnWrapper::call`.
+/// For more info see: https://users.rust-lang.org/t/higher-rank-trait-bounds-use-bound-lifetime-in-another-generic/45121
+pub(super) trait CallableAsyncFn<'r> {
+    type Output: Future<Output = Result<(), anyhow::Error>> + 'r;
+
+    fn call(&self, req: &'r mut ServiceRequest) -> Self::Output;
+}
+
+impl<'r, F, R> CallableAsyncFn<'r> for F
+where
+    F: Fn(&'r mut ServiceRequest) -> R,
+    R: Future<Output = Result<(), anyhow::Error>> + 'r,
+{
+    type Output = R;
+
+    fn call(&self, req: &'r mut ServiceRequest) -> Self::Output {
+        self(req)
     }
 }
 
@@ -109,10 +135,9 @@ pub(super) struct MiddlewareFn<F> {
     inner: Arc<F>,
 }
 
-impl<F, FnFut> MiddlewareFn<F>
+impl<F> MiddlewareFn<F>
 where
-    F: Fn(ServiceRequest) -> FnFut,
-    FnFut: Future<Output = Result<ServiceRequest, anyhow::Error>> + 'static,
+    F: for<'r> CallableAsyncFn<'r>,
 {
     pub fn new(inner: F) -> Self {
         Self {
@@ -121,12 +146,11 @@ where
     }
 }
 
-impl<S, F, FnFut> Transform<S, ServiceRequest> for MiddlewareFn<F>
+impl<S, F> Transform<S, ServiceRequest> for MiddlewareFn<F>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
     S::Future: 'static,
-    F: Fn(ServiceRequest) -> FnFut,
-    FnFut: Future<Output = Result<ServiceRequest, anyhow::Error>> + 'static,
+    F: 'static + for<'r> CallableAsyncFn<'r>,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -147,12 +171,11 @@ pub(super) struct MiddlewareFnWrapper<S, F> {
     inner: Arc<F>,
 }
 
-impl<S, F, FnFut> Service<ServiceRequest> for MiddlewareFnWrapper<S, F>
+impl<S, F> Service<ServiceRequest> for MiddlewareFnWrapper<S, F>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
     S::Future: 'static,
-    F: Fn(ServiceRequest) -> FnFut,
-    FnFut: Future<Output = Result<ServiceRequest, anyhow::Error>> + 'static,
+    F: 'static + for<'r> CallableAsyncFn<'r>,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = S::Error;
@@ -162,18 +185,18 @@ where
         self.service.poll_ready(ct)
     }
 
-    fn call(&self, req: ServiceRequest) -> Self::Future {
+    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+        let inner = self.inner.clone();
         let service = self.service.clone();
 
-        (self.inner)(req)
-            .then(|res| async move {
-                match res {
-                    Err(e) => Ok(req.into_response(
-                        HttpResponse::InternalServerError().body(format!("{:?}", e)),
-                    )),
-                    Ok(req) => service.call(req).await,
-                }
-            })
-            .boxed_local()
+        async move {
+            match inner.call(&mut req).await {
+                Err(e) => Ok(
+                    req.into_response(HttpResponse::InternalServerError().body(format!("{:?}", e)))
+                ),
+                Ok(_) => service.call(req).await,
+            }
+        }
+        .boxed_local()
     }
 }

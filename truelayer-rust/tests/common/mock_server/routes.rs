@@ -1,8 +1,7 @@
 use crate::common::mock_server::MockServerConfiguration;
 use actix_web::{web, HttpResponse};
 use serde_json::json;
-use truelayer_rust::apis::auth::Credentials;
-use truelayer_rust::apis::payments::CreatePaymentRequest;
+use truelayer_rust::apis::{auth::Credentials, payments::CreatePaymentRequest};
 
 /// POST /connect/token
 pub(super) async fn post_auth(
@@ -31,12 +30,12 @@ pub(super) async fn post_auth(
 
 /// POST /payments
 pub(super) async fn create_payment(
-    create_payment_request: web::Json<CreatePaymentRequest>,
+    _create_payment_request: web::Json<CreatePaymentRequest>,
 ) -> HttpResponse {
-    HttpResponse::InternalServerError().finish()
+    HttpResponse::InternalServerError().body("Not implemented")
 }
 
 /// GET /payments/{id}
-pub(super) async fn get_payment_by_id(id: String) -> HttpResponse {
-    HttpResponse::InternalServerError().finish()
+pub(super) async fn get_payment_by_id(_id: String) -> HttpResponse {
+    HttpResponse::InternalServerError().body("Not implemented")
 }
