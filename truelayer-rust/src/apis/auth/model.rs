@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Credentials used to authenticate against TrueLayer's APIs.
-#[derive(Debug, serde::Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "grant_type", rename_all = "snake_case")]
 pub enum Credentials {
     AuthorizationCode {
