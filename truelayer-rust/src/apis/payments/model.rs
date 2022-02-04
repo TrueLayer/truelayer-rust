@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
@@ -13,7 +13,7 @@ pub struct CreatePaymentRequest {
     pub user: User,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentResponse {
     pub id: String,
     pub payment_token: String,
@@ -33,12 +33,12 @@ impl Pollable for CreatePaymentResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentUserResponse {
     pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Payment {
     pub id: String,
     pub amount_in_minor: u64,
@@ -77,7 +77,7 @@ impl IsInTerminalState for Payment {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum PaymentStatus {
     AuthorizationRequired,
@@ -105,7 +105,7 @@ pub enum PaymentStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     Gbp,
@@ -121,7 +121,7 @@ impl Display for Currency {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureStage {
     AuthorizationRequired,
@@ -129,14 +129,14 @@ pub enum FailureStage {
     Authorized,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct PaymentSource {
     pub id: String,
     pub account_identifiers: Option<Vec<AccountIdentifier>>,
     pub account_holder_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PaymentMethod {
     BankTransfer {
@@ -145,7 +145,7 @@ pub enum PaymentMethod {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Beneficiary {
     MerchantAccount {
@@ -159,7 +159,7 @@ pub enum Beneficiary {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AccountIdentifier {
     SortCodeAccountNumber {
@@ -177,7 +177,7 @@ pub enum AccountIdentifier {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProviderSelection {
     UserSelected {
@@ -190,13 +190,13 @@ pub enum ProviderSelection {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Remitter {
     account_holder_name: Option<String>,
     account_identifier: Option<AccountIdentifier>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ProviderFilter {
     pub countries: Option<Vec<CountryCode>>,
     pub release_channel: Option<ReleaseChannel>,
@@ -205,7 +205,7 @@ pub struct ProviderFilter {
     pub excludes: Option<ProviderFilterExcludes>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {
     GB,
@@ -213,7 +213,7 @@ pub enum CountryCode {
     IE,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseChannel {
     GeneralAvailability,
@@ -221,7 +221,7 @@ pub enum ReleaseChannel {
     PrivateBeta,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum CustomerSegment {
     Retail,
@@ -229,23 +229,23 @@ pub enum CustomerSegment {
     Corporate,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ProviderFilterExcludes {
     pub provider_ids: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AuthorizationFlow {
     pub actions: Option<AuthorizationFlowActions>,
     pub configuration: Option<AuthorizationFlowConfiguration>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AuthorizationFlowActions {
     pub next: AuthorizationFlowNextAction,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuthorizationFlowNextAction {
     ProviderSelection {
@@ -258,7 +258,7 @@ pub enum AuthorizationFlowNextAction {
     Wait,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Provider {
     pub provider_id: Option<String>,
     pub display_name: Option<String>,
@@ -268,33 +268,33 @@ pub struct Provider {
     pub country_code: Option<CountryCode>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RedirectActionMetadata {
     Provider(Provider),
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AuthorizationFlowConfiguration {
     pub provider_selection: ProviderSelectionSupported,
     pub redirect: RedirectSupported,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ProviderSelectionSupported {
     NotSupported,
     Supported,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RedirectSupported {
     NotSupported,
     Supported { return_uri: String },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct User {
     pub id: Option<String>,
     pub name: Option<String>,

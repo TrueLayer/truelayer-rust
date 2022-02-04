@@ -4,7 +4,12 @@ mod routes;
 use crate::common::mock_server::middlewares::MiddlewareFn;
 use actix_web::{web, App, HttpServer};
 use reqwest::Url;
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 use tokio::sync::oneshot;
+use truelayer_rust::apis::payments::Payment;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -15,6 +20,8 @@ struct MockServerConfiguration {
     certificate_public_key: Vec<u8>,
     access_token: String,
 }
+
+type MockServerStorage = Arc<RwLock<HashMap<String, Payment>>>;
 
 /// Simple mock server for TrueLayer APIs used in local integration tests.
 pub struct TrueLayerMockServer {
@@ -41,6 +48,7 @@ impl TrueLayerMockServer {
         let http_server_factory = HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(configuration.clone()))
+                .app_data(web::Data::new(MockServerStorage::default()))
                 // User agent must be validated for each request
                 .wrap(MiddlewareFn::new(middlewares::validate_user_agent))
                 // Mock routes
