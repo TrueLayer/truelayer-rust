@@ -1,8 +1,10 @@
-use actix_web::{post, web, App, HttpResponse, HttpServer, Responder};
+mod middlewares;
+mod routes;
+
+use crate::common::mock_server::middlewares::MiddlewareFn;
+use actix_web::{web, App, HttpServer};
 use reqwest::Url;
-use serde_json::json;
 use tokio::sync::oneshot;
-use truelayer_rust::apis::auth::Credentials;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -39,7 +41,22 @@ impl TrueLayerMockServer {
         let http_server_factory = HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(configuration.clone()))
-                .service(post_auth)
+                // User agent must be validated for each request
+                .wrap(MiddlewareFn::new(middlewares::validate_user_agent))
+                // Mock routes
+                .service(web::resource("/connect/token").route(web::post().to(routes::post_auth)))
+                .service(
+                    web::resource("/payments")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::create_payment)),
+                )
+                .service(
+                    web::resource("/payments/{id}").route(web::get().to(routes::get_payment_by_id)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")
@@ -73,31 +90,7 @@ impl TrueLayerMockServer {
 
 impl Drop for TrueLayerMockServer {
     fn drop(&mut self) {
+        // Send a shutdown signal to the actix server on drop
         let _ = self.shutdown.take().unwrap().send(());
-    }
-}
-
-#[post("/connect/token")]
-async fn post_auth(
-    configuration: web::Data<MockServerConfiguration>,
-    incoming: web::Json<Credentials>,
-) -> impl Responder {
-    match incoming.into_inner() {
-        Credentials::ClientCredentials {
-            client_id,
-            client_secret,
-            ..
-        } if client_id == configuration.client_id
-            && client_secret == configuration.client_secret =>
-        {
-            HttpResponse::Ok().json(json!({
-                "token_type": "Bearer",
-                "access_token": configuration.access_token,
-                "expires_in": 3600
-            }))
-        }
-        _ => HttpResponse::BadRequest().json(json!({
-            "error": "invalid_client"
-        })),
     }
 }
