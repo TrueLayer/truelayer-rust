@@ -36,7 +36,7 @@ async fn create_payment() {
 
     // Assert that we got sensible values back
     assert!(!res.id.is_empty());
-    assert!(!res.payment_token.is_empty());
+    assert!(!res.resource_token.is_empty());
     assert!(!res.user.id.is_empty());
 
     // Fetch the same payment

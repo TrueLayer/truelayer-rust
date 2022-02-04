@@ -63,7 +63,7 @@ pub(super) async fn create_payment(
 
     HttpResponse::Created().json(json!({
         "id": id,
-        "payment_token": format!("payment-token-{}", id),
+        "resource_token": format!("resource-token-{}", id),
         "user": {
             "id": user_id
         }

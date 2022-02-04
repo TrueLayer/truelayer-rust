@@ -95,14 +95,14 @@ impl PaymentsApi {
     pub async fn get_hosted_payments_page_link(
         &self,
         payment_id: &str,
-        payment_token: &str,
+        resource_token: &str,
         return_uri: &str,
     ) -> Url {
         let mut new_uri = self.inner.environment.hpp_url().join("/payments").unwrap();
 
         new_uri.set_fragment(Some(&format!(
-            "payment_id={}&payment_token={}&return_uri={}",
-            payment_id, payment_token, return_uri
+            "payment_id={}&resource_token={}&return_uri={}",
+            payment_id, resource_token, return_uri
         )));
 
         new_uri
@@ -184,7 +184,7 @@ mod tests {
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": "payment-id",
-                "payment_token": "payment-token",
+                "resource_token": "resource-token",
                 "user": {
                     "id": "user-id"
                 }
@@ -215,7 +215,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(res.id, "payment-id");
-        assert_eq!(res.payment_token, "payment-token");
+        assert_eq!(res.resource_token, "resource-token");
         assert_eq!(res.user.id, "user-id");
     }
 
