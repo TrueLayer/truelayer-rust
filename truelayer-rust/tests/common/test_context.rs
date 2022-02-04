@@ -4,7 +4,7 @@ use openssl::{
     nid::Nid,
 };
 use reqwest::Url;
-use truelayer_rust::{apis::auth::Credentials, TrueLayerClient};
+use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClient};
 use uuid::Uuid;
 
 pub struct TestContext {
@@ -41,9 +41,7 @@ impl TestContext {
             signing_private_key.private_key_to_pem().unwrap(),
         )
         .with_retry_policy(None) // Disable retries against the mock server
-        .with_auth_url(mock_server.url().clone())
-        .with_payments_url(mock_server.url().clone())
-        .with_hosted_payments_page_url(mock_server.url().clone())
+        .with_environment(Environment::from_single_url(mock_server.url()))
         .build();
 
         Self {

@@ -142,7 +142,7 @@ mod private {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::apis::auth::Credentials;
+    use crate::{apis::auth::Credentials, client::Environment};
     use anyhow::anyhow;
     use reqwest::Url;
     use std::{
@@ -218,7 +218,9 @@ mod tests {
             client_secret: "".to_string(),
             scope: "".to_string(),
         })
-        .with_auth_url(Url::parse("https://non.existent.domain").unwrap())
+        .with_environment(Environment::from_single_url(
+            &Url::parse("https://non.existent.domain").unwrap(),
+        ))
         .build()
     }
 

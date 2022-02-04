@@ -54,9 +54,7 @@ impl TrueLayerClient {
 pub struct TrueLayerClientBuilder {
     client: reqwest::Client,
     retry_policy: Option<DynRetryPolicy>,
-    auth_url: Url,
-    payments_url: Url,
-    hpp_url: Url,
+    environment: Environment,
     credentials: Credentials,
     signing_key: Option<(String, Vec<u8>)>,
 }
@@ -69,9 +67,7 @@ impl TrueLayerClientBuilder {
             retry_policy: Some(DynRetryPolicy(Arc::new(
                 ExponentialBackoff::builder().build_with_max_retries(3),
             ))),
-            auth_url: Url::parse(DEFAULT_AUTH_URL).unwrap(),
-            payments_url: Url::parse(DEFAULT_PAYMENTS_URL).unwrap(),
-            hpp_url: Url::parse(DEFAULT_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
+            environment: Environment::Live,
             credentials,
             signing_key: None,
         }
@@ -87,7 +83,7 @@ impl TrueLayerClientBuilder {
                 None,
                 None,
             ),
-            self.auth_url,
+            self.environment.auth_url(),
             self.credentials,
         );
 
@@ -110,9 +106,8 @@ impl TrueLayerClientBuilder {
                 auth_middleware,
                 signing_middleware,
             ),
+            environment: self.environment,
             authenticator,
-            payments_url: self.payments_url,
-            hpp_url: self.hpp_url,
         });
 
         TrueLayerClient {
@@ -147,37 +142,10 @@ impl TrueLayerClientBuilder {
         self
     }
 
-    /// Sets the base URL for authentication-related requests.
-    ///
-    /// Defaults to: `https://auth.truelayer.com`
-    pub fn with_auth_url(mut self, auth_url: Url) -> Self {
-        self.auth_url = auth_url;
+    /// Sets the environment to which this client should connect
+    pub fn with_environment(mut self, environment: Environment) -> Self {
+        self.environment = environment;
         self
-    }
-
-    /// Sets the base URL for payments-related requests.
-    ///
-    /// Defaults to: `https://test-pay-api.truelayer.com`
-    pub fn with_payments_url(mut self, payments_url: Url) -> Self {
-        self.payments_url = payments_url;
-        self
-    }
-
-    /// Sets the base URL for any generated Hosted Payments Page link.
-    ///
-    /// Defaults to: `https://payment.truelayer.com`
-    pub fn with_hosted_payments_page_url(mut self, hpp_url: Url) -> Self {
-        self.hpp_url = hpp_url;
-        self
-    }
-
-    /// Sets all the base URL to their sandbox values.
-    pub fn with_sandbox_urls(self) -> Self {
-        self.with_auth_url(Url::parse(DEFAULT_SANDBOX_AUTH_URL).unwrap())
-            .with_payments_url(Url::parse(DEFAULT_SANDBOX_PAYMENTS_URL).unwrap())
-            .with_hosted_payments_page_url(
-                Url::parse(DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
-            )
     }
 }
 
@@ -205,4 +173,54 @@ fn build_client_with_middleware(
     }
 
     builder.build()
+}
+
+/// TrueLayer environment to which this client should connect.
+#[derive(Debug, Clone)]
+pub enum Environment {
+    Live,
+    Sandbox,
+    Custom {
+        auth_url: Url,
+        payments_url: Url,
+        hpp_url: Url,
+    },
+}
+
+impl Environment {
+    /// Shortcut to build an `Environment::Custom` with all urls set to the given value.
+    pub fn from_single_url(url: &Url) -> Environment {
+        Environment::Custom {
+            auth_url: url.clone(),
+            payments_url: url.clone(),
+            hpp_url: url.clone(),
+        }
+    }
+
+    /// Base URL for authentication-related requests.
+    pub fn auth_url(&self) -> Url {
+        match self {
+            Environment::Live => Url::parse(DEFAULT_AUTH_URL).unwrap(),
+            Environment::Sandbox => Url::parse(DEFAULT_SANDBOX_AUTH_URL).unwrap(),
+            Environment::Custom { auth_url, .. } => auth_url.clone(),
+        }
+    }
+
+    /// Base URL for payments-related requests.
+    pub fn payments_url(&self) -> Url {
+        match self {
+            Environment::Live => Url::parse(DEFAULT_PAYMENTS_URL).unwrap(),
+            Environment::Sandbox => Url::parse(DEFAULT_SANDBOX_PAYMENTS_URL).unwrap(),
+            Environment::Custom { payments_url, .. } => payments_url.clone(),
+        }
+    }
+
+    /// Base URL for the Hosted Payments Page.
+    pub fn hpp_url(&self) -> Url {
+        match self {
+            Environment::Live => Url::parse(DEFAULT_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
+            Environment::Sandbox => Url::parse(DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
+            Environment::Custom { hpp_url, .. } => hpp_url.clone(),
+        }
+    }
 }

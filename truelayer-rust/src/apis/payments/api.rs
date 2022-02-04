@@ -43,7 +43,13 @@ impl PaymentsApi {
         let res = self
             .inner
             .client
-            .post(self.inner.payments_url.join("/payments").unwrap())
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join("/payments")
+                    .unwrap(),
+            )
             .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .json(create_payment_request)
             .send()
@@ -64,7 +70,8 @@ impl PaymentsApi {
             .client
             .get(
                 self.inner
-                    .payments_url
+                    .environment
+                    .payments_url()
                     .join(&format!("/payments/{}", id))
                     .unwrap(),
             )
@@ -91,7 +98,7 @@ impl PaymentsApi {
         payment_token: &str,
         return_uri: &str,
     ) -> Url {
-        let mut new_uri = self.inner.hpp_url.join("/payments").unwrap();
+        let mut new_uri = self.inner.environment.hpp_url().join("/payments").unwrap();
 
         new_uri.set_fragment(Some(&format!(
             "payment_id={}&payment_token={}&return_uri={}",
@@ -113,6 +120,7 @@ mod tests {
             },
         },
         authenticator::Authenticator,
+        client::Environment,
         middlewares::error_handling::ErrorHandlingMiddleware,
     };
     use chrono::Utc;
@@ -143,8 +151,7 @@ mod tests {
                 .with(ErrorHandlingMiddleware)
                 .build(),
             authenticator,
-            payments_url: Url::parse(&mock_server.uri()).unwrap(),
-            hpp_url: Url::parse(&mock_server.uri()).unwrap(),
+            environment: Environment::from_single_url(&Url::parse(&mock_server.uri()).unwrap()),
         };
 
         (inner, mock_server)
