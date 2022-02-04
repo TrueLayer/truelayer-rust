@@ -11,8 +11,8 @@ use task_local_extensions::Extensions;
 ///
 /// Uses [`truelayer_signing`](truelayer_signing) to build the signatures.
 pub struct SigningMiddleware {
-    pub(crate) certificate_id: String,
-    pub(crate) certificate_private_key: Vec<u8>,
+    pub(crate) key_id: String,
+    pub(crate) private_key: Vec<u8>,
 }
 
 #[async_trait]
@@ -26,12 +26,9 @@ impl Middleware for SigningMiddleware {
         // Sign only POST, PUT and DELETE requests
         if let Method::POST | Method::PUT | Method::DELETE = *req.method() {
             // Include method and path
-            let mut signer = truelayer_signing::sign_with_pem(
-                &self.certificate_id,
-                &self.certificate_private_key,
-            )
-            .method(req.method().as_str())
-            .path(req.url().path());
+            let mut signer = truelayer_signing::sign_with_pem(&self.key_id, &self.private_key)
+                .method(req.method().as_str())
+                .path(req.url().path());
 
             // Include the idempotency key header
             if let Some(idempotency_key) = req.headers().get(IDEMPOTENCY_KEY_HEADER) {
@@ -75,8 +72,8 @@ mod tests {
 
         let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
             .with(SigningMiddleware {
-                certificate_id: "mock-certificate-id".to_string(),
-                certificate_private_key: key.private_key_to_pem().unwrap(),
+                key_id: "mock-key-id".to_string(),
+                private_key: key.private_key_to_pem().unwrap(),
             })
             .build();
 

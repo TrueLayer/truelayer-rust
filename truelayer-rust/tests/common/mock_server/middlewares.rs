@@ -68,7 +68,7 @@ pub(super) fn validate_signature(
                 .await?;
 
             let mut verifier =
-                truelayer_signing::verify_with_pem(configuration.certificate_public_key.as_slice())
+                truelayer_signing::verify_with_pem(configuration.signing_public_key.as_slice())
                     .method(req.method().as_str())
                     .path(req.path());
 
@@ -90,7 +90,7 @@ pub(super) fn validate_signature(
                 .map(|v| v.to_str())
                 .transpose()?
                 .ok_or_else(|| anyhow!("Missing required signature"))?;
-            if truelayer_signing::extract_jws_header(signature)?.kid != configuration.certificate_id
+            if truelayer_signing::extract_jws_header(signature)?.kid != configuration.signing_key_id
             {
                 return Err(anyhow!("Invalid key id"));
             }

@@ -8,6 +8,7 @@ use truelayer_rust::{
             Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, ProviderSelection, User,
         },
     },
+    client::Environment,
     pollable::{PollOptions, PollableUntilTerminalState},
     TrueLayerClient,
 };
@@ -20,9 +21,9 @@ struct Config {
     client_id: String,
     client_secret: String,
     auth_server_uri: Url,
-    certificate_id: String,
+    key_id: String,
     private_key: String,
-    environment_uri: Url,
+    payments_uri: Url,
     return_uri: Url,
     hpp_uri: Url,
 }
@@ -48,10 +49,12 @@ async fn run() -> anyhow::Result<()> {
         client_secret: config.client_secret,
         scope: "payments".to_string(),
     })
-    .with_certificate(&config.certificate_id, config.private_key.into_bytes())
-    .with_auth_url(config.auth_server_uri)
-    .with_payments_url(config.environment_uri)
-    .with_hosted_payments_page_url(config.hpp_uri)
+    .with_signing_key(&config.key_id, config.private_key.into_bytes())
+    .with_environment(Environment::Custom {
+        auth_url: config.auth_server_uri,
+        payments_url: config.payments_uri,
+        hpp_url: config.hpp_uri,
+    })
     .build();
 
     // Create a new outgoing payment
