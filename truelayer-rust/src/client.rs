@@ -177,6 +177,7 @@ fn build_client_with_middleware(
 
 /// TrueLayer environment to which this client should connect.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum Environment {
     Live,
     Sandbox,
