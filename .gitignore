@@ -4,3 +4,4 @@ target/
 .idea
 .env
 config.json
+Cargo.lock
