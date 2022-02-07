@@ -16,16 +16,13 @@ use url::Url;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]
-#[serde(rename_all = "UPPERCASE")]
 struct Config {
     client_id: String,
     client_secret: String,
-    auth_server_uri: Url,
     key_id: String,
     private_key: String,
-    payments_uri: Url,
     return_uri: Url,
-    hpp_uri: Url,
+    merchant_account_id: String,
 }
 
 impl Config {
@@ -50,11 +47,7 @@ async fn run() -> anyhow::Result<()> {
         scope: "payments".to_string(),
     })
     .with_signing_key(&config.key_id, config.private_key.into_bytes())
-    .with_environment(Environment::Custom {
-        auth_url: config.auth_server_uri,
-        payments_url: config.payments_uri,
-        hpp_url: config.hpp_uri,
-    })
+    .with_environment(Environment::Sandbox)
     .build();
 
     // Create a new outgoing payment
@@ -66,7 +59,7 @@ async fn run() -> anyhow::Result<()> {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: "00000000-0000-0000-0000-000000000000".to_string(),
+                    merchant_account_id: config.merchant_account_id,
                     account_holder_name: None,
                 },
             },
@@ -94,7 +87,7 @@ async fn run() -> anyhow::Result<()> {
         .poll_until_terminal_state(&tl, PollOptions::default())
         .await?;
 
-    tracing::info!("{:?}", completed_payment);
+    tracing::info!("{:#?}", completed_payment);
 
     Ok(())
 }

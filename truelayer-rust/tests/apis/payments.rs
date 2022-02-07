@@ -134,10 +134,10 @@ async fn complete_authorization_flow() {
         .start_authorization_flow(
             &res.id,
             &StartAuthorizationFlowRequest {
-                provider_selection: ProviderSelectionSupported::Supported,
-                redirect: RedirectSupported::Supported {
+                provider_selection: Some(ProviderSelectionSupported {}),
+                redirect: Some(RedirectSupported {
                     return_uri: "https://my.return.uri".to_string(),
-                },
+                }),
             },
         )
         .await

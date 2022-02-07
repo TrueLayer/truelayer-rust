@@ -276,22 +276,16 @@ pub enum RedirectActionMetadata {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AuthorizationFlowConfiguration {
-    pub provider_selection: ProviderSelectionSupported,
-    pub redirect: RedirectSupported,
+    pub provider_selection: Option<ProviderSelectionSupported>,
+    pub redirect: Option<RedirectSupported>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[serde(tag = "status", rename_all = "snake_case")]
-pub enum ProviderSelectionSupported {
-    NotSupported,
-    Supported,
-}
+pub struct ProviderSelectionSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[serde(tag = "status", rename_all = "snake_case")]
-pub enum RedirectSupported {
-    NotSupported,
-    Supported { return_uri: String },
+pub struct RedirectSupported {
+    pub return_uri: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -304,16 +298,8 @@ pub struct User {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct StartAuthorizationFlowRequest {
-    #[serde(
-        skip_serializing_if = "skip_serializing_provider_selection_supported",
-        default = "default_provider_selection_supported"
-    )]
-    pub provider_selection: ProviderSelectionSupported,
-    #[serde(
-        skip_serializing_if = "skip_serializing_redirect_supported",
-        default = "default_redirect_supported"
-    )]
-    pub redirect: RedirectSupported,
+    pub provider_selection: Option<ProviderSelectionSupported>,
+    pub redirect: Option<RedirectSupported>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -343,20 +329,4 @@ pub enum AuthorizationFlowResponseStatus {
         failure_stage: FailureStage,
         failure_reason: String,
     },
-}
-
-fn skip_serializing_provider_selection_supported(val: &ProviderSelectionSupported) -> bool {
-    *val == ProviderSelectionSupported::NotSupported
-}
-
-fn skip_serializing_redirect_supported(val: &RedirectSupported) -> bool {
-    *val == RedirectSupported::NotSupported
-}
-
-fn default_provider_selection_supported() -> ProviderSelectionSupported {
-    ProviderSelectionSupported::NotSupported
-}
-
-fn default_redirect_supported() -> RedirectSupported {
-    RedirectSupported::NotSupported
 }
