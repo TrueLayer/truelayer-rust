@@ -105,7 +105,8 @@ async fn process_get_access_token(
 
     if res.token_type != "Bearer" {
         return Err(Error::Other(anyhow::anyhow!(
-            "Unsupported access token type: {res.token_type}. This is a bug in the SDK.",
+            "Unsupported access token type: {}. This is a bug in the SDK.",
+            res.token_type,
         )));
     }
 
