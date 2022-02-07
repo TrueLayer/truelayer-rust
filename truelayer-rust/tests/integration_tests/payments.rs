@@ -7,12 +7,14 @@ use truelayer_rust::apis::payments::{
 };
 use uuid::Uuid;
 
+static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
+static MOCK_RETURN_URI: &str = "http://localhost:3000/callback";
+
 #[tokio::test]
 async fn create_payment() {
     let ctx = TestContext::start().await;
 
     // Create a payment
-    let merchant_account_id = Uuid::new_v4().to_string();
     let res = ctx
         .client
         .payments
@@ -22,7 +24,7 @@ async fn create_payment() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_id.clone(),
                     account_holder_name: None,
                 },
             },
@@ -62,12 +64,12 @@ async fn create_payment() {
         payment.payment_method,
         PaymentMethod::BankTransfer {
             beneficiary: Beneficiary::MerchantAccount {
-                merchant_account_id: mid,
+                merchant_account_id,
                 ..
             },
             ..
         }
-        if mid == merchant_account_id
+        if merchant_account_id == ctx.merchant_account_id
     ));
     assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
 }
@@ -91,7 +93,6 @@ async fn complete_authorization_flow() {
     let ctx = TestContext::start().await;
 
     // Create a payment
-    let merchant_account_id = Uuid::new_v4().to_string();
     let res = ctx
         .client
         .payments
@@ -101,7 +102,7 @@ async fn complete_authorization_flow() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_id.clone(),
                     account_holder_name: None,
                 },
             },
@@ -136,7 +137,7 @@ async fn complete_authorization_flow() {
             &StartAuthorizationFlowRequest {
                 provider_selection: Some(ProviderSelectionSupported {}),
                 redirect: Some(RedirectSupported {
-                    return_uri: "https://my.return.uri".to_string(),
+                    return_uri: MOCK_RETURN_URI.to_string(),
                 }),
             },
         )
@@ -183,7 +184,7 @@ async fn complete_authorization_flow() {
         .submit_provider_selection(
             &res.id,
             &SubmitProviderSelectionActionRequest {
-                provider_id: "mock-provider-id".to_string(),
+                provider_id: MOCK_PROVIDER_ID.to_string(),
             },
         )
         .await
@@ -197,11 +198,10 @@ async fn complete_authorization_flow() {
         submit_provider_selection_response.authorization_flow,
         Some(AuthorizationFlow {
             actions: Some(AuthorizationFlowActions {
-                next: AuthorizationFlowNextAction::Redirect { uri, .. }
+                next: AuthorizationFlowNextAction::Redirect { .. }
             }),
             ..
         })
-        if uri == "https://my.redirect.uri"
     ));
 
     // Retrieve the payment by id and check its status
@@ -216,11 +216,10 @@ async fn complete_authorization_flow() {
         PaymentStatus::Authorizing {
             authorization_flow: AuthorizationFlow {
                 actions: Some(AuthorizationFlowActions {
-                    next: AuthorizationFlowNextAction::Redirect { uri, .. }
+                    next: AuthorizationFlowNextAction::Redirect { .. }
                 }),
                 ..
             }
         }
-        if uri == "https://my.redirect.uri"
     ));
 }

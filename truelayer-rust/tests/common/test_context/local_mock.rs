@@ -3,12 +3,12 @@ use openssl::{
     ec::{EcGroup, EcKey},
     nid::Nid,
 };
-use reqwest::Url;
 use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClient};
 use uuid::Uuid;
 
 pub struct TestContext {
     pub client: TrueLayerClient,
+    pub merchant_account_id: String, // HACK: Temporary workaround until we implement merchant account endpoints
     mock_server: TrueLayerMockServer,
 }
 
@@ -20,6 +20,7 @@ impl TestContext {
         let signing_key_id = Uuid::new_v4().to_string();
         let signing_private_key =
             EcKey::generate(&EcGroup::from_curve_name(Nid::SECP521R1).unwrap()).unwrap();
+        let merchant_account_id = Uuid::new_v4().to_string();
 
         // Setup a new mock server
         let mock_server = TrueLayerMockServer::start(
@@ -46,11 +47,12 @@ impl TestContext {
 
         Self {
             client,
+            merchant_account_id,
             mock_server,
         }
     }
 
-    pub fn mock_server_url(&self) -> &Url {
-        self.mock_server.url()
+    pub fn tl_environment(&self) -> Environment {
+        Environment::from_single_url(self.mock_server.url())
     }
 }
