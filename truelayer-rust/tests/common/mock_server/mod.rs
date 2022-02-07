@@ -60,7 +60,8 @@ impl TrueLayerMockServer {
                             configuration.clone(),
                             true,
                         )))
-                        .route(web::post().to(routes::create_payment)),
+                        .route(web::post().to(routes::create_payment))
+                        .route(web::get().to(routes::hpp_page)),
                 )
                 .service(
                     web::resource("/payments/{id}").route(web::get().to(routes::get_payment_by_id)),

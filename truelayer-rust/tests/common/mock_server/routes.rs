@@ -6,12 +6,15 @@ use truelayer_rust::apis::{
     auth::Credentials,
     payments::{
         AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-        AuthorizationFlowResponseStatus, CreatePaymentRequest, Payment, PaymentStatus, Provider,
-        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitProviderSelectionActionRequest, User,
+        AuthorizationFlowResponseStatus, CreatePaymentRequest, Payment, PaymentMethod,
+        PaymentStatus, Provider, ProviderSelection, StartAuthorizationFlowRequest,
+        StartAuthorizationFlowResponse, SubmitProviderSelectionActionRequest, User,
     },
 };
 use uuid::Uuid;
+
+static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
+static MOCK_REDIRECT_URI: &str = "https://my.redirect.uri";
 
 /// POST /connect/token
 pub(super) async fn post_auth(
@@ -103,23 +106,50 @@ pub(super) async fn start_authorization_flow(
         None => return HttpResponse::NotFound().finish(),
     };
 
+    // Check if the payment was created with a preselected provider
+    let is_provider_preselected = match payment.payment_method {
+        PaymentMethod::BankTransfer {
+            provider_selection:
+                ProviderSelection::Preselected {
+                    ref provider_id, ..
+                },
+            ..
+        } => {
+            // Bail out if the user preselected an unexpected provider
+            if provider_id != MOCK_PROVIDER_ID {
+                return HttpResponse::BadRequest().finish();
+            }
+
+            true
+        }
+        _ => false,
+    };
+
     match payment.status {
         PaymentStatus::AuthorizationRequired => {
-            // Move the payment to authorizing, and prepare a provider selection as the next action
+            // Choose the next action depending on whether the provider has already been preselected or not
+            let next_action = if is_provider_preselected {
+                AuthorizationFlowNextAction::Redirect {
+                    uri: MOCK_REDIRECT_URI.to_string(),
+                    metadata: None,
+                }
+            } else {
+                AuthorizationFlowNextAction::ProviderSelection {
+                    providers: vec![Provider {
+                        provider_id: MOCK_PROVIDER_ID.to_string(),
+                        display_name: None,
+                        icon_uri: None,
+                        logo_uri: None,
+                        bg_color: None,
+                        country_code: None,
+                    }],
+                }
+            };
+
+            // Move the payment to the Authorizing state
             let authorization_flow = AuthorizationFlow {
                 configuration: None,
-                actions: Some(AuthorizationFlowActions {
-                    next: AuthorizationFlowNextAction::ProviderSelection {
-                        providers: vec![Provider {
-                            provider_id: "mock-provider-id".to_string(),
-                            display_name: None,
-                            icon_uri: None,
-                            logo_uri: None,
-                            bg_color: None,
-                            country_code: None,
-                        }],
-                    },
-                }),
+                actions: Some(AuthorizationFlowActions { next: next_action }),
             };
             payment.status = PaymentStatus::Authorizing {
                 authorization_flow: authorization_flow.clone(),
@@ -143,7 +173,7 @@ pub(super) async fn submit_provider_selection(
     let id = path.into_inner();
 
     // We are a very simple and humble mock
-    if body.provider_id != "mock-provider-id" {
+    if body.provider_id != MOCK_PROVIDER_ID {
         return HttpResponse::BadRequest().finish();
     }
 
@@ -170,7 +200,7 @@ pub(super) async fn submit_provider_selection(
                 configuration: None,
                 actions: Some(AuthorizationFlowActions {
                     next: AuthorizationFlowNextAction::Redirect {
-                        uri: "https://my.redirect.uri".to_string(),
+                        uri: MOCK_REDIRECT_URI.to_string(),
                         metadata: None,
                     },
                 }),
@@ -186,4 +216,10 @@ pub(super) async fn submit_provider_selection(
         }
         _ => HttpResponse::BadRequest().finish(),
     }
+}
+
+/// GET /payments
+pub(super) async fn hpp_page() -> HttpResponse {
+    // Intentionally empty. We don't need to do anything here.
+    HttpResponse::Ok().finish()
 }
