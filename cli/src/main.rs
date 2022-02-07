@@ -84,7 +84,7 @@ async fn run() -> anyhow::Result<()> {
     tracing::info!(
         "HPP Link: {}",
         tl.payments
-            .get_hosted_payments_page_link(&res.id, &res.payment_token, config.return_uri.as_str())
+            .get_hosted_payments_page_link(&res.id, &res.resource_token, config.return_uri.as_str())
             .await
     );
 

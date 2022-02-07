@@ -16,7 +16,7 @@ pub struct CreatePaymentRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentResponse {
     pub id: String,
-    pub payment_token: String,
+    pub resource_token: String,
     pub user: CreatePaymentUserResponse,
 }
 
