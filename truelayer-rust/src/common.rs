@@ -9,3 +9,4 @@ pub static DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.tru
 // Header names
 pub static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";
 pub static TL_SIGNATURE_HEADER: &str = "Tl-Signature";
+pub static TL_CORRELATION_ID_HEADER: &str = "X-Tl-Correlation-Id";

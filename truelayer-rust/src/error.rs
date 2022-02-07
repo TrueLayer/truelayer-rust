@@ -41,7 +41,7 @@ impl From<Error> for reqwest_middleware::Error {
 /// TrueLayer HTTP APIs error.
 #[derive(thiserror::Error, Debug)]
 pub struct ApiError {
-    pub r#type: Option<String>,
+    pub r#type: String,
     pub title: String,
     pub status: u16,
     pub trace_id: Option<String>,
@@ -51,11 +51,11 @@ pub struct ApiError {
 
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TrueLayer HTTP error {}: {}", self.status, self.title)?;
-
-        if let Some(ref r#type) = self.r#type {
-            write!(f, " ({})", r#type)?;
-        }
+        write!(
+            f,
+            "TrueLayer HTTP error {}: {} ({})",
+            self.status, self.title, self.r#type
+        )?;
 
         if let Some(ref detail) = self.detail {
             write!(f, "\nAdditional details: {}", detail)?;
