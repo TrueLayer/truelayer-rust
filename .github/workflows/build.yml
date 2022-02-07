@@ -29,3 +29,12 @@ jobs:
         run: cargo clippy --all-targets --workspace -- -D warnings
       - name: Test
         run: cargo test --all-targets --workspace
+      - name: Acceptance tests in Sandbox environment
+        # if: ${{ github.ref == 'ref/heads/main' }}
+        env:
+          ACCEPTANCE_TESTS_CLIENT_ID: ${{ secrets.ACCEPTANCE_TESTS_CLIENT_ID }}
+          ACCEPTANCE_TESTS_CLIENT_SECRET: ${{ secrets.ACCEPTANCE_TESTS_CLIENT_SECRET }}
+          ACCEPTANCE_TESTS_SIGNING_KEY_ID: ${{ secrets.ACCEPTANCE_TESTS_SIGNING_KEY_ID }}
+          ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY: ${{ secrets.ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY }}
+          ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_ID: ${{ secrets.ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_ID }}
+        run: cargo test --all-targets --workspace --features acceptance-tests 'integration_tests::'
