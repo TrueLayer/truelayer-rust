@@ -1,7 +1,9 @@
 use crate::common::test_context::TestContext;
 use truelayer_rust::apis::payments::{
-    Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, PaymentStatus, ProviderSelection,
-    User,
+    AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
+    AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency, PaymentMethod,
+    PaymentStatus, ProviderSelection, ProviderSelectionSupported, RedirectSupported,
+    StartAuthorizationFlowRequest, SubmitProviderSelectionActionRequest, User,
 };
 use uuid::Uuid;
 
@@ -82,4 +84,143 @@ async fn fetch_non_existing_payment_returns_none() {
         .unwrap();
 
     assert!(payment.is_none());
+}
+
+#[tokio::test]
+async fn complete_authorization_flow() {
+    let ctx = TestContext::start().await;
+
+    // Create a payment
+    let merchant_account_id = Uuid::new_v4().to_string();
+    let res = ctx
+        .client
+        .payments
+        .create(&CreatePaymentRequest {
+            amount_in_minor: 100,
+            currency: Currency::Gbp,
+            payment_method: PaymentMethod::BankTransfer {
+                provider_selection: ProviderSelection::UserSelected { filter: None },
+                beneficiary: Beneficiary::MerchantAccount {
+                    merchant_account_id: merchant_account_id.clone(),
+                    account_holder_name: None,
+                },
+            },
+            user: User {
+                id: None,
+                name: Some("someone".to_string()),
+                email: Some("some.one@email.com".to_string()),
+                phone: None,
+            },
+        })
+        .await
+        .unwrap();
+
+    // Retrieve the payment by id and check its status
+    assert_eq!(
+        ctx.client
+            .payments
+            .get_by_id(&res.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        PaymentStatus::AuthorizationRequired
+    );
+
+    // Start authorization flow
+    let start_auth_flow_response = ctx
+        .client
+        .payments
+        .start_authorization_flow(
+            &res.id,
+            &StartAuthorizationFlowRequest {
+                provider_selection: ProviderSelectionSupported::Supported,
+                redirect: RedirectSupported::Supported {
+                    return_uri: "https://my.return.uri".to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        start_auth_flow_response.status,
+        AuthorizationFlowResponseStatus::Authorizing
+    );
+    assert!(matches!(
+        start_auth_flow_response.authorization_flow,
+        Some(AuthorizationFlow {
+            actions: Some(AuthorizationFlowActions {
+                next: AuthorizationFlowNextAction::ProviderSelection { .. }
+            }),
+            ..
+        })
+    ));
+
+    // Retrieve the payment by id and check its status
+    assert!(matches!(
+        ctx.client
+            .payments
+            .get_by_id(&res.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        PaymentStatus::Authorizing {
+            authorization_flow: AuthorizationFlow {
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::ProviderSelection { .. }
+                }),
+                ..
+            }
+        }
+    ));
+
+    // Submit provider selection
+    let submit_provider_selection_response = ctx
+        .client
+        .payments
+        .submit_provider_selection(
+            &res.id,
+            &SubmitProviderSelectionActionRequest {
+                provider_id: "mock-provider-id".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        submit_provider_selection_response.status,
+        AuthorizationFlowResponseStatus::Authorizing
+    );
+    assert!(matches!(
+        submit_provider_selection_response.authorization_flow,
+        Some(AuthorizationFlow {
+            actions: Some(AuthorizationFlowActions {
+                next: AuthorizationFlowNextAction::Redirect { uri, .. }
+            }),
+            ..
+        })
+        if uri == "https://my.redirect.uri"
+    ));
+
+    // Retrieve the payment by id and check its status
+    assert!(matches!(
+        ctx.client
+            .payments
+            .get_by_id(&res.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        PaymentStatus::Authorizing {
+            authorization_flow: AuthorizationFlow {
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Redirect { uri, .. }
+                }),
+                ..
+            }
+        }
+        if uri == "https://my.redirect.uri"
+    ));
 }

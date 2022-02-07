@@ -65,6 +65,24 @@ impl TrueLayerMockServer {
                 .service(
                     web::resource("/payments/{id}").route(web::get().to(routes::get_payment_by_id)),
                 )
+                .service(
+                    web::resource("/payments/{id}/authorization-flow")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::start_authorization_flow)),
+                )
+                .service(
+                    web::resource("/payments/{id}/authorization-flow/actions/provider-selection")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::submit_provider_selection)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")
