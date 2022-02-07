@@ -260,7 +260,7 @@ pub enum AuthorizationFlowNextAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Provider {
-    pub provider_id: Option<String>,
+    pub provider_id: String,
     pub display_name: Option<String>,
     pub icon_uri: Option<String>,
     pub logo_uri: Option<String>,
@@ -300,4 +300,63 @@ pub struct User {
     pub name: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct StartAuthorizationFlowRequest {
+    #[serde(
+        skip_serializing_if = "skip_serializing_provider_selection_supported",
+        default = "default_provider_selection_supported"
+    )]
+    pub provider_selection: ProviderSelectionSupported,
+    #[serde(
+        skip_serializing_if = "skip_serializing_redirect_supported",
+        default = "default_redirect_supported"
+    )]
+    pub redirect: RedirectSupported,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct StartAuthorizationFlowResponse {
+    pub authorization_flow: Option<AuthorizationFlow>,
+    #[serde(flatten)]
+    pub status: AuthorizationFlowResponseStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitProviderSelectionActionRequest {
+    pub provider_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitProviderSelectionActionResponse {
+    pub authorization_flow: Option<AuthorizationFlow>,
+    #[serde(flatten)]
+    pub status: AuthorizationFlowResponseStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum AuthorizationFlowResponseStatus {
+    Authorizing,
+    Failed {
+        failure_stage: FailureStage,
+        failure_reason: String,
+    },
+}
+
+fn skip_serializing_provider_selection_supported(val: &ProviderSelectionSupported) -> bool {
+    *val == ProviderSelectionSupported::NotSupported
+}
+
+fn skip_serializing_redirect_supported(val: &RedirectSupported) -> bool {
+    *val == RedirectSupported::NotSupported
+}
+
+fn default_provider_selection_supported() -> ProviderSelectionSupported {
+    ProviderSelectionSupported::NotSupported
+}
+
+fn default_redirect_supported() -> RedirectSupported {
+    RedirectSupported::NotSupported
 }

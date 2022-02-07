@@ -1,6 +1,10 @@
 use crate::{
     apis::{
-        payments::{CreatePaymentRequest, CreatePaymentResponse, Payment},
+        payments::{
+            CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
+            StartAuthorizationFlowResponse, SubmitProviderSelectionActionRequest,
+            SubmitProviderSelectionActionResponse,
+        },
         TrueLayerClientInner,
     },
     common::IDEMPOTENCY_KEY_HEADER,
@@ -8,6 +12,7 @@ use crate::{
 };
 use reqwest::Url;
 use std::sync::Arc;
+use urlencoding::encode;
 use uuid::Uuid;
 
 /// TrueLayer payments APIs client.
@@ -22,9 +27,6 @@ impl PaymentsApi {
     }
 
     /// Creates a new payment.
-    ///
-    /// See documentation of [`TrueLayerClient`](crate::client::TrueLayerClient)
-    /// for more details on the idempotency key.
     #[tracing::instrument(
         name = "Create Payment",
         skip(self, create_payment_request),
@@ -60,6 +62,72 @@ impl PaymentsApi {
         Ok(res)
     }
 
+    /// Starts the authorization flow for a payment.
+    #[tracing::instrument(name = "Start Authorization Flow", skip(self, req))]
+    pub async fn start_authorization_flow(
+        &self,
+        payment_id: &str,
+        req: &StartAuthorizationFlowRequest,
+    ) -> Result<StartAuthorizationFlowResponse, Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/authorization-flow",
+                        encode(payment_id)
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(req)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
+    /// Submits the provider details selected by the PSU.
+    #[tracing::instrument(name = "Submit Provider Selection", skip(self, req))]
+    pub async fn submit_provider_selection(
+        &self,
+        payment_id: &str,
+        req: &SubmitProviderSelectionActionRequest,
+    ) -> Result<SubmitProviderSelectionActionResponse, Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/authorization-flow/actions/provider-selection",
+                        encode(payment_id)
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(req)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
     /// Gets the details of an existing payment.
     ///
     /// If there's no payment with the given id, `None` is returned.
@@ -72,7 +140,7 @@ impl PaymentsApi {
                 self.inner
                     .environment
                     .payments_url()
-                    .join(&format!("/payments/{}", id))
+                    .join(&format!("/payments/{}", encode(id)))
                     .unwrap(),
             )
             .send()
@@ -116,7 +184,9 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{
-                Beneficiary, Currency, PaymentMethod, PaymentStatus, ProviderSelection, User,
+                AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
+                CountryCode, Currency, FailureStage, PaymentMethod, PaymentStatus, Provider,
+                ProviderSelection, ProviderSelectionSupported, RedirectSupported, User,
             },
         },
         authenticator::Authenticator,
@@ -217,6 +287,201 @@ mod tests {
         assert_eq!(res.id, "payment-id");
         assert_eq!(res.payment_token, "payment-token");
         assert_eq!(res.user.id, "user-id");
+    }
+
+    #[tokio::test]
+    async fn start_authorization_flow() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!("/payments/{}/authorization-flow", payment_id)))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({
+                "provider_selection": {},
+                "redirect": {
+                    "return_uri": "https://my.return.uri"
+                }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "authorization_flow": {
+                    "actions": {
+                        "next": {
+                            "type": "provider_selection",
+                            "providers": [
+                                {
+                                    "provider_id": "ob-bank-name",
+                                    "display_name": "Bank Name",
+                                    "icon_uri": "https://truelayer-provider-assets.s3.amazonaws.com/global/icon/generic.svg",
+                                    "logo_uri": "https://truelayer-provider-assets.s3.amazonaws.com/global/logos/generic.svg",
+                                    "bg_color": "#000000",
+                                    "country_code": "GB"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "status": "authorizing"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .start_authorization_flow(
+                payment_id,
+                &StartAuthorizationFlowRequest {
+                    provider_selection: ProviderSelectionSupported::Supported,
+                    redirect: RedirectSupported::Supported {
+                        return_uri: "https://my.return.uri".to_string(),
+                    },
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status, AuthorizationFlowResponseStatus::Authorizing);
+        assert!(res
+            .authorization_flow
+            .as_ref()
+            .unwrap()
+            .configuration
+            .is_none());
+        assert_eq!(
+            res.authorization_flow.unwrap().actions.unwrap().next,
+            AuthorizationFlowNextAction::ProviderSelection {
+                providers: vec![Provider {
+                    provider_id: "ob-bank-name".to_string(),
+                    display_name: Some("Bank Name".to_string()),
+                    icon_uri: Some("https://truelayer-provider-assets.s3.amazonaws.com/global/icon/generic.svg".to_string()),
+                    logo_uri: Some("https://truelayer-provider-assets.s3.amazonaws.com/global/logos/generic.svg".to_string()),
+                    bg_color: Some("#000000".to_string()),
+                    country_code: Some(CountryCode::GB)
+                }]
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_provider_selection() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+        let provider_id = "mock-provider-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/payments/{}/authorization-flow/actions/provider-selection",
+                payment_id
+            )))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({ "provider_id": provider_id })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "authorization_flow": {
+                    "actions": {
+                        "next": {
+                            "type": "redirect",
+                            "uri": "https://my.redirect.uri"
+                        }
+                    }
+                },
+                "status": "authorizing"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .submit_provider_selection(
+                payment_id,
+                &SubmitProviderSelectionActionRequest {
+                    provider_id: provider_id.to_string(),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status, AuthorizationFlowResponseStatus::Authorizing);
+        assert!(res
+            .authorization_flow
+            .as_ref()
+            .unwrap()
+            .configuration
+            .is_none());
+        assert_eq!(
+            res.authorization_flow.unwrap().actions.unwrap().next,
+            AuthorizationFlowNextAction::Redirect {
+                uri: "https://my.redirect.uri".to_string(),
+                metadata: None
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_provider_selection_failure() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+        let provider_id = "mock-provider-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/payments/{}/authorization-flow/actions/provider-selection",
+                payment_id
+            )))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({ "provider_id": provider_id })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "authorization_flow": {
+                    "actions": {
+                        "next": {
+                            "type": "redirect",
+                            "uri": "https://my.redirect.uri"
+                        }
+                    }
+                },
+                "status": "failed",
+                "failure_stage": "authorizing",
+                "failure_reason": "mock_reason"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .submit_provider_selection(
+                payment_id,
+                &SubmitProviderSelectionActionRequest {
+                    provider_id: provider_id.to_string(),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            res.status,
+            AuthorizationFlowResponseStatus::Failed {
+                failure_stage: FailureStage::Authorizing,
+                failure_reason: "mock_reason".to_string()
+            }
+        );
+        assert!(res
+            .authorization_flow
+            .as_ref()
+            .unwrap()
+            .configuration
+            .is_none());
+        assert_eq!(
+            res.authorization_flow.unwrap().actions.unwrap().next,
+            AuthorizationFlowNextAction::Redirect {
+                uri: "https://my.redirect.uri".to_string(),
+                metadata: None
+            }
+        );
     }
 
     #[tokio::test]
