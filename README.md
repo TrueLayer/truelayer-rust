@@ -112,8 +112,6 @@ tracing::info!("HPP Link: {}", hpp_link);
 
 Look into the [`examples`](./examples) for more example usages of this library.
 
-## Building locally
-
 ## Testing
 
 ### Unit and integration tests
@@ -135,7 +133,9 @@ To execute tests against TrueLayer sandbox environment, you should set the below
 
 and finally run:
 
-> cargo test --features acceptance-tests
+```shell
+cargo test --features acceptance-tests
+```
 
 Acceptance tests are run automatically on every push to main.
 
