@@ -22,7 +22,6 @@ struct Config {
     key_id: String,
     private_key: String,
     return_uri: Url,
-    merchant_account_id: String,
 }
 
 impl Config {
@@ -50,6 +49,23 @@ async fn run() -> anyhow::Result<()> {
     .with_environment(Environment::Sandbox)
     .build();
 
+    // List all merchant accounts
+    let merchant_accounts = tl.merchant_accounts.list().await?;
+    for merchant_account in &merchant_accounts {
+        tracing::info!(
+            "Merchant Account {}: Balance: {:.2} {}",
+            merchant_account.id,
+            merchant_account.available_balance_in_minor as f32 / 100.0,
+            merchant_account.currency
+        );
+    }
+
+    // Select the first one with GBP currency
+    let merchant_account = merchant_accounts
+        .into_iter()
+        .find(|m| m.currency == Currency::Gbp)
+        .context("Cannot find a GBP merchant account")?;
+
     // Create a new outgoing payment
     let res = tl
         .payments
@@ -59,7 +75,7 @@ async fn run() -> anyhow::Result<()> {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: config.merchant_account_id,
+                    merchant_account_id: merchant_account.id,
                     account_holder_name: None,
                 },
             },

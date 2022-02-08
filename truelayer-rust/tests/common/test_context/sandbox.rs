@@ -2,7 +2,7 @@ use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClie
 
 pub struct TestContext {
     pub client: TrueLayerClient,
-    pub merchant_account_id: String,
+    pub merchant_account_gbp_id: String,
 }
 
 impl TestContext {
@@ -12,7 +12,8 @@ impl TestContext {
         let client_secret = std::env::var("ACCEPTANCE_TESTS_CLIENT_SECRET").unwrap();
         let signing_key_id = std::env::var("ACCEPTANCE_TESTS_SIGNING_KEY_ID").unwrap();
         let signing_private_key = std::env::var("ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY").unwrap();
-        let merchant_account_id = std::env::var("ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_ID").unwrap();
+        let merchant_account_gbp_id =
+            std::env::var("ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_ID").unwrap();
 
         // Configure a new TrueLayerClient to point to Sandbox
         let client = TrueLayerClient::builder(Credentials::ClientCredentials {
@@ -26,7 +27,7 @@ impl TestContext {
 
         Self {
             client,
-            merchant_account_id,
+            merchant_account_gbp_id,
         }
     }
 

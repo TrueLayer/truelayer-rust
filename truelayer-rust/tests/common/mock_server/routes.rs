@@ -223,3 +223,28 @@ pub(super) async fn hpp_page() -> HttpResponse {
     // Intentionally empty. We don't need to do anything here.
     HttpResponse::Ok().finish()
 }
+
+/// GET /merchant-accounts
+pub(super) async fn list_merchant_accounts(
+    configuration: web::Data<MockServerConfiguration>,
+) -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+        "items": configuration.merchant_accounts.values().collect::<Vec<_>>()
+    }))
+}
+
+/// GET /merchant-accounts/{id}
+pub(super) async fn get_merchant_account_by_id(
+    configuration: web::Data<MockServerConfiguration>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    let merchant_account = configuration
+        .merchant_accounts
+        .values()
+        .find(|m| m.id == *id);
+
+    match merchant_account {
+        Some(m) => HttpResponse::Ok().json(m),
+        None => HttpResponse::NotFound().finish(),
+    }
+}

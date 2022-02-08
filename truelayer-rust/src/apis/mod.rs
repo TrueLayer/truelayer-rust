@@ -3,6 +3,7 @@ use reqwest_middleware::ClientWithMiddleware;
 use std::fmt::{Debug, Formatter};
 
 pub mod auth;
+pub mod merchant_accounts;
 pub mod payments;
 
 pub(crate) struct TrueLayerClientInner {
