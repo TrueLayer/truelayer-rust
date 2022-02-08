@@ -1,4 +1,4 @@
-# truelayer-rust
+# TrueLayer Rust
 
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://truelayer.mit-license.org/)
 [![Build](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml/badge.svg)](https://github.com/TrueLayer/truelayer-rust/actions/workflows/build.yml)
@@ -14,7 +14,7 @@ Add the latest version of the library to your project's `Cargo.toml`.
 
 ```toml
 [dependencies]
-truelayer-rust = "0.1" # TODO: update version
+truelayer-rust = "0.1"
 ```
 
 Alternatively, you can use [`cargo-edit`](https://crates.io/crates/cargo-edit) if you have it already installed:
@@ -49,20 +49,68 @@ To obtain the public key, run:
 docker run --rm -v ${PWD}:/out -w /out -it alpine/openssl ec -in ec512-private-key.pem -pubout -out ec512-public-key.pem
 ```
 
-
-### Configure Settings
-
-
 ### Initialize TrueLayerClient
 
-> TODO
+Create a new `TrueLayerClient` and provide your client ID and client secret.
+
+```rust
+use truelayer_rust::{TrueLayerClient, apis::auth::Credentials};
+
+let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
+    client_id: "some-client-id".to_string(),
+    client_secret: "some-client-secret".to_string(),
+    scope: "payments".to_string(),
+})
+.with_signing_key(&config.key_id, config.private_key.into_bytes())
+.build();
+```
+
+By default, a `TrueLayerClient` connects to the Live environment.
+To connect to TrueLayer Sandbox, use `.with_environment(Environment::Sandbox)`.
 
 ### Create a payment
 
-> TODO
-### Build a link to our hosted createPaymentResponse page
+```rust
+let res = tl
+    .payments
+    .create(&CreatePaymentRequest {
+        amount_in_minor: 100,
+        currency: Currency::Gbp,
+        payment_method: PaymentMethod::BankTransfer {
+            provider_selection: ProviderSelection::UserSelected { filter: None },
+            beneficiary: Beneficiary::MerchantAccount {
+                merchant_account_id: "some-merchant-id".to_string(),
+                account_holder_name: None,
+            },
+        },
+        user: User {
+            id: Some(Uuid::new_v4().to_string()),
+            name: Some("Some One".to_string()),
+            email: Some("some.one@email.com".to_string()),
+            phone: None,
+        },
+    })
+    .await?;
 
-> TODO
+tracing::info!("Created new payment: {}", res.id);
+```
+
+For more info on all the parameters necessary to create a new payment, please refer to the official
+[TrueLayer docs](https://docs.truelayer.com/).
+
+### Build a link to our Hosted Payments Page
+
+```rust
+let hpp_link = tl.payments
+    .get_hosted_payments_page_link(&res.id, &res.resource_token, config.return_uri.as_str())
+    .await;
+
+tracing::info!("HPP Link: {}", hpp_link);
+```
+
+### More examples
+
+Look into the [`examples`](./examples) for more example usages of this library.
 
 ## Building locally
 
@@ -73,20 +121,23 @@ docker run --rm -v ${PWD}:/out -w /out -it alpine/openssl ec -in ec512-private-k
 You can use `cargo` to run the tests locally:
 
 ```shell
-cargo test --workspace
+cargo test
 ```
 
 ### Acceptance tests
 
 To execute tests against TrueLayer sandbox environment, you should set the below environment variables:
-- `TL_CLIENT_ID`
-- `TL_CLIENT_SECRET`
-- `TL_SIGNING_KEY_ID`
-- `TL_SIGNING_PRIVATE_KEY`
+- `ACCEPTANCE_TESTS_CLIENT_ID`
+- `ACCEPTANCE_TESTS_CLIENT_SECRET`
+- `ACCEPTANCE_TESTS_SIGNING_KEY_ID`
+- `ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY`
+- `ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_ID`
 
 and finally run:
 
-> TODO
+> cargo test --features acceptance-tests
+
+Acceptance tests are run automatically on every push to main.
 
 ## Code linting
 
