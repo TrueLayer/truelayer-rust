@@ -108,6 +108,20 @@ let hpp_link = tl.payments
 tracing::info!("HPP Link: {}", hpp_link);
 ```
 
+### Listing Merchant Accounts
+
+```rust
+let merchant_accounts = tl.merchant_accounts.list().await?;
+for merchant_account in &merchant_accounts {
+    tracing::info!(
+        "Merchant Account {}: Balance: {:.2} {}",
+        merchant_account.id,
+        merchant_account.available_balance_in_minor as f32 / 100.0,
+        merchant_account.currency
+    );
+}
+```
+
 ### More examples
 
 Look into the [`examples`](./examples) for more example usages of this library.

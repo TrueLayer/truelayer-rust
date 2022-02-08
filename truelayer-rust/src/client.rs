@@ -3,6 +3,7 @@
 use crate::{
     apis::{
         auth::{AuthApi, Credentials},
+        merchant_accounts::MerchantAccountsApi,
         payments::PaymentsApi,
         TrueLayerClientInner,
     },
@@ -35,6 +36,8 @@ pub struct TrueLayerClient {
     pub auth: AuthApi,
     /// Payments APIs client.
     pub payments: PaymentsApi,
+    /// Merchant Accounts APIs client.
+    pub merchant_accounts: MerchantAccountsApi,
 }
 
 impl TrueLayerClient {
@@ -112,7 +115,8 @@ impl TrueLayerClientBuilder {
 
         TrueLayerClient {
             auth: AuthApi::new(inner.clone()),
-            payments: PaymentsApi::new(inner),
+            payments: PaymentsApi::new(inner.clone()),
+            merchant_accounts: MerchantAccountsApi::new(inner),
         }
     }
 

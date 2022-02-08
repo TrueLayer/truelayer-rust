@@ -24,7 +24,7 @@ async fn create_payment() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
                 },
             },
@@ -69,7 +69,7 @@ async fn create_payment() {
             },
             ..
         }
-        if merchant_account_id == ctx.merchant_account_id
+        if merchant_account_id == ctx.merchant_account_gbp_id
     ));
     assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
 }
@@ -102,7 +102,7 @@ async fn hpp_link_returns_200() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
                 },
             },
@@ -151,7 +151,7 @@ async fn complete_authorization_flow_with_user_selected_provider() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
                 },
             },
@@ -291,7 +291,7 @@ async fn complete_authorization_flow_with_preselected_provider() {
                     remitter: None,
                 },
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_id.clone(),
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
                 },
             },

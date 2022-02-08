@@ -9,7 +9,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::sync::oneshot;
-use truelayer_rust::apis::payments::Payment;
+use truelayer_rust::apis::{
+    merchant_accounts::MerchantAccount,
+    payments::{AccountIdentifier, Currency, Payment},
+};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -19,6 +22,7 @@ struct MockServerConfiguration {
     signing_key_id: String,
     signing_public_key: Vec<u8>,
     access_token: String,
+    merchant_accounts: HashMap<Currency, MerchantAccount>,
 }
 
 type MockServerStorage = Arc<RwLock<HashMap<String, Payment>>>;
@@ -27,6 +31,7 @@ type MockServerStorage = Arc<RwLock<HashMap<String, Payment>>>;
 pub struct TrueLayerMockServer {
     url: Url,
     shutdown: Option<oneshot::Sender<()>>,
+    configuration: MockServerConfiguration,
 }
 
 impl TrueLayerMockServer {
@@ -42,7 +47,39 @@ impl TrueLayerMockServer {
             signing_key_id: signing_key_id.to_string(),
             signing_public_key,
             access_token: Uuid::new_v4().to_string(),
+            merchant_accounts: [
+                (
+                    Currency::Gbp,
+                    MerchantAccount {
+                        id: Uuid::new_v4().to_string(),
+                        currency: Currency::Gbp,
+                        account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                            sort_code: "123456".to_string(),
+                            account_number: "12345678".to_string(),
+                        }],
+                        available_balance_in_minor: 100,
+                        current_balance_in_minor: 200,
+                        account_holder_name: "Mr. Holder".to_string(),
+                    },
+                ),
+                (
+                    Currency::Eur,
+                    MerchantAccount {
+                        id: Uuid::new_v4().to_string(),
+                        currency: Currency::Eur,
+                        account_identifiers: vec![AccountIdentifier::Iban {
+                            iban: "GB68BARC20038085742745".to_string(),
+                        }],
+                        available_balance_in_minor: 100,
+                        current_balance_in_minor: 200,
+                        account_holder_name: "Mr. Holder".to_string(),
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
         };
+        let configuration_clone = configuration.clone();
 
         // Setup the mock HTTP server and bind it to a random port
         let http_server_factory = HttpServer::new(move || {
@@ -84,6 +121,14 @@ impl TrueLayerMockServer {
                         )))
                         .route(web::post().to(routes::submit_provider_selection)),
                 )
+                .service(
+                    web::resource("/merchant-accounts")
+                        .route(web::get().to(routes::list_merchant_accounts)),
+                )
+                .service(
+                    web::resource("/merchant-accounts/{id}")
+                        .route(web::get().to(routes::get_merchant_account_by_id)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")
@@ -107,11 +152,16 @@ impl TrueLayerMockServer {
         Self {
             url: Url::parse(&format!("http://{}", addr)).unwrap(),
             shutdown: Some(shutdown_sender),
+            configuration: configuration_clone,
         }
     }
 
     pub fn url(&self) -> &Url {
         &self.url
+    }
+
+    pub fn merchant_account(&self, currency: Currency) -> Option<&MerchantAccount> {
+        self.configuration.merchant_accounts.get(&currency)
     }
 }
 

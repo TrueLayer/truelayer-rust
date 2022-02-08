@@ -105,7 +105,7 @@ pub enum PaymentStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     Gbp,
@@ -121,7 +121,7 @@ impl Display for Currency {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureStage {
     AuthorizationRequired,
@@ -205,7 +205,7 @@ pub struct ProviderFilter {
     pub excludes: Option<ProviderFilterExcludes>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {
     GB,
@@ -213,7 +213,7 @@ pub enum CountryCode {
     IE,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseChannel {
     GeneralAvailability,
@@ -221,7 +221,7 @@ pub enum ReleaseChannel {
     PrivateBeta,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum CustomerSegment {
     Retail,
