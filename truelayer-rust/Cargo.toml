@@ -27,3 +27,6 @@ actix-web = "=4.0.0-rc.2"
 futures = "0.3"
 openssl = "0.10"
 wiremock = "0.5"
+
+[features]
+acceptance-tests = []

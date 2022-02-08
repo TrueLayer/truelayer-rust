@@ -192,8 +192,8 @@ pub enum ProviderSelection {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Remitter {
-    account_holder_name: Option<String>,
-    account_identifier: Option<AccountIdentifier>,
+    pub account_holder_name: Option<String>,
+    pub account_identifier: Option<AccountIdentifier>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

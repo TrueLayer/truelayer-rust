@@ -3,6 +3,7 @@ use actix_web::{
     body::BoxBody,
     dev::{Payload, Service, ServiceRequest, ServiceResponse, Transform},
     error::PayloadError,
+    http::Method,
     web::{Bytes, BytesMut},
     Error, HttpMessage, HttpResponse,
 };
@@ -34,6 +35,11 @@ pub(super) async fn validate_user_agent(req: &mut ServiceRequest) -> Result<(), 
 
 /// Ensures that the incoming request has an idempotency key set
 pub(super) async fn ensure_idempotency_key(req: &mut ServiceRequest) -> Result<(), anyhow::Error> {
+    // Skip this middleware for GETs
+    if req.method() == Method::GET {
+        return Ok(());
+    }
+
     anyhow::ensure!(
         req.headers()
             .get("Idempotency-Key")
@@ -57,6 +63,11 @@ pub(super) fn validate_signature(
         let configuration = configuration.clone();
 
         Box::pin(async move {
+            // Skip this middleware for GETs
+            if req.method() == Method::GET {
+                return Ok(());
+            }
+
             // Buffer all the body in memory
             let body = req
                 .take_payload()

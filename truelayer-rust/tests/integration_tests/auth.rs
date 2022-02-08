@@ -1,7 +1,5 @@
 use crate::common::test_context::TestContext;
-use truelayer_rust::{
-    apis::auth::Credentials, client::Environment, error::ApiError, Error, TrueLayerClient,
-};
+use truelayer_rust::{apis::auth::Credentials, error::ApiError, Error, TrueLayerClient};
 
 #[tokio::test]
 async fn get_access_token() {
@@ -29,7 +27,7 @@ async fn invalid_credentials() {
         client_secret: "invalid".to_string(),
         scope: "payments paydirect".to_string(),
     })
-    .with_environment(Environment::from_single_url(ctx.mock_server_url()))
+    .with_environment(ctx.tl_environment())
     .build();
 
     // Make the request and assert that we got an error
