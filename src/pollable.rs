@@ -1,3 +1,5 @@
+//! Common logic to poll for updates on resources.
+
 use crate::{Error, TrueLayerClient};
 use async_trait::async_trait;
 use chrono::Utc;

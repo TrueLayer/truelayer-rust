@@ -80,7 +80,7 @@ pub struct AccessToken {
 }
 
 impl AccessToken {
-    /// Actual token held by this `Token` instance.
+    /// Actual token contents held by this `AccessToken` instance.
     pub fn token(&self) -> &str {
         &self.token
     }

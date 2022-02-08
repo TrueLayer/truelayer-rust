@@ -11,7 +11,7 @@ pub enum Error {
     /// Error returned by a TrueLayer API endpoint.
     #[error("{0}")]
     ApiError(#[from] ApiError),
-    /// Error during request signing.
+    /// Error building request signature.
     ///
     /// Read more about signing here: <https://docs.truelayer.com/docs/signing-your-requests>
     #[error("Error signing request: {0}")]
@@ -41,11 +41,21 @@ impl From<Error> for reqwest_middleware::Error {
 /// TrueLayer HTTP APIs error.
 #[derive(thiserror::Error, Debug)]
 pub struct ApiError {
+    /// A unique identifier for this class of error.
+    ///
+    /// It's typically a URL pointing to a webpage with more information on the error.
     pub r#type: String,
+    /// Concise description of the error.
     pub title: String,
+    /// HTTP status returned by the server.
     pub status: u16,
+    /// The TrueLayer trace identifier for the request.
     pub trace_id: Option<String>,
+    /// A human readable explanation specific to this occurrence of the problem.
     pub detail: Option<String>,
+    /// Optional additional details depending on the specific error.
+    ///
+    /// In the case of validation errors, this map contains a list of all the fields that failed validation.
     pub errors: HashMap<String, Vec<String>>,
 }
 
