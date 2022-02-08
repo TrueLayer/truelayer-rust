@@ -126,6 +126,12 @@ for merchant_account in &merchant_accounts {
 
 Look into the [`examples`](./examples) for more example usages of this library.
 
+To run an example, use `cargo run` like this:
+
+```shell
+cargo run --example create_payment
+```
+
 ## Testing
 
 ### Unit and integration tests

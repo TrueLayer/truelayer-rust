@@ -1,5 +1,3 @@
-mod log;
-
 use anyhow::Context;
 use truelayer_rust::{
     apis::{
@@ -36,7 +34,6 @@ impl Config {
 }
 
 async fn run() -> anyhow::Result<()> {
-    log::init();
     let config = Config::read()?;
 
     // Setup TrueLayer client
@@ -110,6 +107,12 @@ async fn run() -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::INFO)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed");
+
     if let Err(e) = run().await {
         tracing::error!("Fatal error: {:?}", e);
         std::process::exit(1);
