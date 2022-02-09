@@ -1,4 +1,5 @@
 //! Module containing the main TrueLayer API client.
+//! This is where the main [`TrueLayerClient`](crate::client::TrueLayerClient) is.
 
 use crate::{
     apis::{
@@ -29,7 +30,48 @@ use std::sync::Arc;
 
 /// Client for TrueLayer public APIs.
 ///
-/// TODO: Describe idempotency key and automatic retries.
+/// ## Authentication
+///
+/// All TrueLayer endpoints require authentication, and for that reason, a valid set of
+/// [`Credentials`] must be provided when building a new client.
+///
+/// On the first request, the client automatically issues another request to the Auth server
+/// to exchange the provided [`Credentials`] for an [`AccessToken`]
+/// and caches the received token until it expires. All subsequent requests will reuse the cached
+/// token without contacting the Auth server again.
+///
+/// If needed, you can call the [`get_access_token()`] function to retrieve the current [`AccessToken`],
+/// even though that should rarely be necessary.
+///
+/// ## Idempotency and automatic retries
+///
+/// In case of a transient failure (e.g., a network error) the client automatically waits and
+/// retries the failed request a few times before giving up and returning an error,
+/// **only if the original request was idempotent**. Examples of idempotent requests are `GET`s and
+/// `DELETE`s (see [RFC 7231] for a complete list).
+///
+/// In addition to the methods listed in [RFC 7231], the Payments V3 APIs support the usage of
+/// [idempotency keys] to also make `POST`s idempotent. The client will transparently attach
+/// an auto generated idempotency key to requests against endpoints supporting this feature
+/// and thus will also retry them in case of transient failures, without causing unwanted double side-effects.
+///
+/// To change the retry policy (or to disable automatic retries entirely), use [`with_retry_policy()`]
+/// when building a new client.
+///
+/// ## Request signature
+///
+/// Some endpoints that have notable side effects (like creating a new payment) require [requests signatures].
+/// Signatures are handled automatically by the client if a key is provided at construction time
+/// with [`with_signing_key()`].
+///
+/// [`AccessToken`]: crate::apis::auth::AccessToken
+/// [`Credentials`]: crate::apis::auth::Credentials
+/// [`get_access_token()`]: crate::apis::auth::AuthApi::get_access_token
+/// [`with_retry_policy()`]: crate::client::TrueLayerClientBuilder::with_retry_policy
+/// [`with_signing_key()`]: crate::client::TrueLayerClientBuilder::with_signing_key
+/// [RFC 7231]: https://datatracker.ietf.org/doc/html/rfc7231#section-4.2.2
+/// [idempotency keys]: https://docs.truelayer.com/docs/idempotency
+/// [requests signatures]: https://docs.truelayer.com/docs/signing-your-requests
 #[derive(Debug, Clone)]
 pub struct TrueLayerClient {
     /// Authentication APIs client.
@@ -137,7 +179,7 @@ impl TrueLayerClientBuilder {
         self
     }
 
-    /// Configures a signing key for [request signing](https://docs.truelayer.com/docs/paydirect-sign-requests).
+    /// Configures a signing key for [request signing](https://docs.truelayer.com/docs/signing-your-requests).
     /// Signing is required for some operations like initiating a new payment.
     ///
     /// The private key is expected to be PEM encoded.
@@ -179,12 +221,15 @@ fn build_client_with_middleware(
     builder.build()
 }
 
-/// TrueLayer environment to which this client should connect.
+/// TrueLayer environment to which a [`TrueLayerClient`](crate::client::TrueLayerClient) should connect.
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum Environment {
+    /// TrueLayer Live environment.
     Live,
+    /// TrueLayer Sandbox environment.
     Sandbox,
+    /// Custom environment. This variant is mainly used for tests.
     Custom {
         auth_url: Url,
         payments_url: Url,

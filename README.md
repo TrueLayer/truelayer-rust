@@ -61,7 +61,7 @@ let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
     client_secret: "some-client-secret".to_string(),
     scope: "payments".to_string(),
 })
-.with_signing_key(&config.key_id, config.private_key.into_bytes())
+.with_signing_key("my-kid", private_key)
 .build();
 ```
 
@@ -79,7 +79,7 @@ let res = tl
         payment_method: PaymentMethod::BankTransfer {
             provider_selection: ProviderSelection::UserSelected { filter: None },
             beneficiary: Beneficiary::MerchantAccount {
-                merchant_account_id: "some-merchant-id".to_string(),
+                merchant_account_id: "some-merchant-account-id".to_string(),
                 account_holder_name: None,
             },
         },
@@ -92,7 +92,7 @@ let res = tl
     })
     .await?;
 
-tracing::info!("Created new payment: {}", res.id);
+println!("Created new payment: {}", res.id);
 ```
 
 For more info on all the parameters necessary to create a new payment, please refer to the official
@@ -101,11 +101,13 @@ For more info on all the parameters necessary to create a new payment, please re
 ### Build a link to our Hosted Payments Page
 
 ```rust
+let res = tl.payments.create(...).await?;
+
 let hpp_link = tl.payments
-    .get_hosted_payments_page_link(&res.id, &res.resource_token, config.return_uri.as_str())
+    .get_hosted_payments_page_link(&res.id, &res.resource_token, "https://my.return.uri")
     .await;
 
-tracing::info!("HPP Link: {}", hpp_link);
+println!("HPP Link: {}", hpp_link);
 ```
 
 ### Listing Merchant Accounts
@@ -113,7 +115,7 @@ tracing::info!("HPP Link: {}", hpp_link);
 ```rust
 let merchant_accounts = tl.merchant_accounts.list().await?;
 for merchant_account in &merchant_accounts {
-    tracing::info!(
+    println!(
         "Merchant Account {}: Balance: {:.2} {}",
         merchant_account.id,
         merchant_account.available_balance_in_minor as f32 / 100.0,

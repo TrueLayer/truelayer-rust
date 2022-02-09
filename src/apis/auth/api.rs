@@ -16,7 +16,7 @@ impl AuthApi {
     }
 
     /// Returns the current [`AccessToken`](crate::apis::auth::AccessToken) used to authenticate to the TrueLayer APIs.
-    /// If the client is no authenticated yet, a new authentication request
+    /// If the client is not authenticated yet, a new authentication request
     /// using the configured credentials will be fired.
     pub async fn get_access_token(&self) -> Result<AuthenticationResult, Error> {
         // Just delegate to the authenticator

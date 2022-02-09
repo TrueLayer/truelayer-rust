@@ -1,3 +1,5 @@
+//! Clients for the various TrueLayer APIs.
+
 use crate::{authenticator::Authenticator, client::Environment};
 use reqwest_middleware::ClientWithMiddleware;
 use std::fmt::{Debug, Formatter};
