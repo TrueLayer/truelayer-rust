@@ -1,10 +1,17 @@
 use crate::common::test_context::TestContext;
-use truelayer_rust::apis::payments::{
-    AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-    AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency, PaymentMethod,
-    PaymentStatus, ProviderSelection, ProviderSelectionSupported, RedirectSupported,
-    StartAuthorizationFlowRequest, SubmitProviderSelectionActionRequest, User,
+use retry_policies::policies::ExponentialBackoff;
+use truelayer_rust::{
+    apis::payments::{
+        AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
+        AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency,
+        PaymentMethod, PaymentStatus, ProviderSelection, ProviderSelectionSupported,
+        RedirectSupported, StartAuthorizationFlowRequest, SubmitProviderSelectionActionRequest,
+        User,
+    },
+    pollable::PollOptions,
+    PollableUntilTerminalState,
 };
+use url::Url;
 use uuid::Uuid;
 
 static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
@@ -365,4 +372,104 @@ async fn complete_authorization_flow_with_preselected_provider() {
             }
         }
     ));
+}
+
+#[tokio::test]
+#[cfg_attr(not(feature = "acceptance-tests"), ignore)]
+async fn test_payment_completion() {
+    let ctx = TestContext::start().await;
+
+    // Create a payment
+    let res = ctx
+        .client
+        .payments
+        .create(&CreatePaymentRequest {
+            amount_in_minor: 100,
+            currency: Currency::Gbp,
+            payment_method: PaymentMethod::BankTransfer {
+                provider_selection: ProviderSelection::Preselected {
+                    provider_id: MOCK_PROVIDER_ID.to_string(),
+                    scheme_id: "faster_payments_service".to_string(),
+                    remitter: None,
+                },
+                beneficiary: Beneficiary::MerchantAccount {
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                    account_holder_name: None,
+                },
+            },
+            user: User {
+                id: None,
+                name: Some("someone".to_string()),
+                email: Some("some.one@email.com".to_string()),
+                phone: None,
+            },
+        })
+        .await
+        .unwrap();
+
+    // Start authorization flow
+    let start_auth_flow_response = ctx
+        .client
+        .payments
+        .start_authorization_flow(
+            &res.id,
+            &StartAuthorizationFlowRequest {
+                provider_selection: Some(ProviderSelectionSupported {}),
+                redirect: Some(RedirectSupported {
+                    return_uri: MOCK_RETURN_URI.to_string(),
+                }),
+            },
+        )
+        .await
+        .unwrap();
+
+    let redirect_uri = match start_auth_flow_response.authorization_flow {
+        Some(AuthorizationFlow {
+            actions:
+                Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Redirect { uri, .. },
+                }),
+            ..
+        }) => uri,
+        _ => panic!("Unexpected authorization flow"),
+    };
+
+    let url = Url::parse(&redirect_uri).unwrap();
+    let simp_id = url.path_segments().unwrap().nth(1).unwrap();
+    let token = &url.fragment().unwrap()[6..];
+
+    println!("SIMP ID: {}", simp_id);
+    println!("TOKEN: {}", token);
+
+    reqwest::Client::new()
+        .post(
+            url.join(&format!(
+                "/api/single-immediate-payments/{}/action",
+                simp_id
+            ))
+            .unwrap(),
+        )
+        .bearer_auth(token)
+        .json(&serde_json::json!({
+            "redirect": false,
+            "action": "Execute" // "Execute" | "RejectAuthorisation" | "RejectExecution" | "Cancel"
+        }))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    println!("Done");
+
+    let payment = res
+        .poll_until_terminal_state(
+            &ctx.client,
+            PollOptions::default()
+                .with_retry_policy(ExponentialBackoff::builder().build_with_max_retries(u32::MAX)),
+        )
+        .await
+        .unwrap();
+
+    println!("{:#?}", payment);
 }
