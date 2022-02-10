@@ -1,12 +1,14 @@
-use crate::common::test_context::TestContext;
+use crate::common::{test_context::TestContext, MockBankAction};
 use retry_policies::policies::ExponentialBackoff;
+use std::time::Duration;
+use test_case::test_case;
 use truelayer_rust::{
     apis::payments::{
         AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-        AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency,
+        AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency, FailureStage,
         PaymentMethod, PaymentStatus, ProviderSelection, ProviderSelectionSupported,
-        RedirectSupported, StartAuthorizationFlowRequest, SubmitProviderSelectionActionRequest,
-        User,
+        RedirectSupported, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
+        SubmitProviderSelectionActionRequest, User,
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -16,70 +18,6 @@ use uuid::Uuid;
 
 static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
 static MOCK_RETURN_URI: &str = "http://localhost:3000/callback";
-
-#[tokio::test]
-async fn create_payment() {
-    let ctx = TestContext::start().await;
-
-    // Create a payment
-    let res = ctx
-        .client
-        .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
-                beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    account_holder_name: None,
-                },
-            },
-            user: User {
-                id: None,
-                name: Some("someone".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-        })
-        .await
-        .unwrap();
-
-    // Assert that we got sensible values back
-    assert!(!res.id.is_empty());
-    assert!(!res.resource_token.is_empty());
-    assert!(!res.user.id.is_empty());
-
-    // Fetch the same payment
-    let payment = ctx
-        .client
-        .payments
-        .get_by_id(&res.id)
-        .await
-        .unwrap()
-        .unwrap();
-
-    // Ensure the returned payment contains correct data
-    assert_eq!(payment.id, res.id);
-    assert_eq!(payment.amount_in_minor, 100);
-    assert_eq!(payment.currency, Currency::Gbp);
-    assert_eq!(payment.user.id, Some(res.user.id));
-    assert_eq!(payment.user.name.as_deref(), Some("someone"));
-    assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
-    assert_eq!(payment.user.phone, None);
-    assert!(matches!(
-        payment.payment_method,
-        PaymentMethod::BankTransfer {
-            beneficiary: Beneficiary::MerchantAccount {
-                merchant_account_id,
-                ..
-            },
-            ..
-        }
-        if merchant_account_id == ctx.merchant_account_gbp_id
-    ));
-    assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
-}
 
 #[tokio::test]
 async fn fetch_non_existing_payment_returns_none() {
@@ -142,142 +80,6 @@ async fn hpp_link_returns_200() {
         .unwrap()
         .status()
         .is_success());
-}
-
-#[tokio::test]
-async fn complete_authorization_flow_with_user_selected_provider() {
-    let ctx = TestContext::start().await;
-
-    // Create a payment
-    let res = ctx
-        .client
-        .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
-                beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    account_holder_name: None,
-                },
-            },
-            user: User {
-                id: None,
-                name: Some("someone".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-        })
-        .await
-        .unwrap();
-
-    // Retrieve the payment by id and check its status
-    assert_eq!(
-        ctx.client
-            .payments
-            .get_by_id(&res.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .status,
-        PaymentStatus::AuthorizationRequired
-    );
-
-    // Start authorization flow
-    let start_auth_flow_response = ctx
-        .client
-        .payments
-        .start_authorization_flow(
-            &res.id,
-            &StartAuthorizationFlowRequest {
-                provider_selection: Some(ProviderSelectionSupported {}),
-                redirect: Some(RedirectSupported {
-                    return_uri: MOCK_RETURN_URI.to_string(),
-                }),
-            },
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(
-        start_auth_flow_response.status,
-        AuthorizationFlowResponseStatus::Authorizing
-    );
-    assert!(matches!(
-        start_auth_flow_response.authorization_flow,
-        Some(AuthorizationFlow {
-            actions: Some(AuthorizationFlowActions {
-                next: AuthorizationFlowNextAction::ProviderSelection { .. }
-            }),
-            ..
-        })
-    ));
-
-    // Retrieve the payment by id and check its status
-    assert!(matches!(
-        ctx.client
-            .payments
-            .get_by_id(&res.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .status,
-        PaymentStatus::Authorizing {
-            authorization_flow: AuthorizationFlow {
-                actions: Some(AuthorizationFlowActions {
-                    next: AuthorizationFlowNextAction::ProviderSelection { .. }
-                }),
-                ..
-            }
-        }
-    ));
-
-    // Submit provider selection
-    let submit_provider_selection_response = ctx
-        .client
-        .payments
-        .submit_provider_selection(
-            &res.id,
-            &SubmitProviderSelectionActionRequest {
-                provider_id: MOCK_PROVIDER_ID.to_string(),
-            },
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(
-        submit_provider_selection_response.status,
-        AuthorizationFlowResponseStatus::Authorizing
-    );
-    assert!(matches!(
-        submit_provider_selection_response.authorization_flow,
-        Some(AuthorizationFlow {
-            actions: Some(AuthorizationFlowActions {
-                next: AuthorizationFlowNextAction::Redirect { .. }
-            }),
-            ..
-        })
-    ));
-
-    // Retrieve the payment by id and check its status
-    assert!(matches!(
-        ctx.client
-            .payments
-            .get_by_id(&res.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .status,
-        PaymentStatus::Authorizing {
-            authorization_flow: AuthorizationFlow {
-                actions: Some(AuthorizationFlowActions {
-                    next: AuthorizationFlowNextAction::Redirect { .. }
-                }),
-                ..
-            }
-        }
-    ));
 }
 
 #[tokio::test]
@@ -374,102 +176,306 @@ async fn complete_authorization_flow_with_preselected_provider() {
     ));
 }
 
-#[tokio::test]
-#[cfg_attr(not(feature = "acceptance-tests"), ignore)]
-async fn test_payment_completion() {
-    let ctx = TestContext::start().await;
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ScenarioProviderSelection {
+    UserSelected,
+    Preselected,
+}
 
-    // Create a payment
-    let res = ctx
-        .client
-        .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::Preselected {
-                    provider_id: MOCK_PROVIDER_ID.to_string(),
-                    scheme_id: "faster_payments_service".to_string(),
-                    remitter: None,
+enum ScenarioExpectedStatus {
+    ExecutedOrSettled,
+    Failed {
+        failure_stage: FailureStage,
+        failure_reason: &'static str,
+    },
+}
+
+struct CreatePaymentScenario {
+    provider_selection: ScenarioProviderSelection,
+    mock_bank_action: MockBankAction,
+    expected_status: ScenarioExpectedStatus,
+}
+
+impl CreatePaymentScenario {
+    async fn run(&self) {
+        let ctx = TestContext::start().await;
+
+        // Create a payment
+        let res = ctx
+            .client
+            .payments
+            .create(&CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethod::BankTransfer {
+                    provider_selection: match self.provider_selection {
+                        ScenarioProviderSelection::UserSelected => {
+                            ProviderSelection::UserSelected { filter: None }
+                        }
+                        ScenarioProviderSelection::Preselected => ProviderSelection::Preselected {
+                            provider_id: MOCK_PROVIDER_ID.to_string(),
+                            scheme_id: "faster_payments_service".to_string(),
+                            remitter: None,
+                        },
+                    },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                        account_holder_name: None,
+                    },
                 },
+                user: User {
+                    id: None,
+                    name: Some("someone".to_string()),
+                    email: Some("some.one@email.com".to_string()),
+                    phone: None,
+                },
+            })
+            .await
+            .unwrap();
+
+        // Assert that we got sensible values back
+        assert!(!res.id.is_empty());
+        assert!(!res.resource_token.is_empty());
+        assert!(!res.user.id.is_empty());
+
+        // Fetch the same payment
+        let payment = ctx
+            .client
+            .payments
+            .get_by_id(&res.id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        // Ensure the returned payment contains correct data
+        assert_eq!(payment.id, res.id);
+        assert_eq!(payment.amount_in_minor, 100);
+        assert_eq!(payment.currency, Currency::Gbp);
+        assert_eq!(payment.user.id, Some(res.user.id));
+        assert_eq!(payment.user.name.as_deref(), Some("someone"));
+        assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
+        assert_eq!(payment.user.phone, None);
+        assert!(matches!(
+            payment.payment_method,
+            PaymentMethod::BankTransfer {
                 beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    account_holder_name: None,
+                    merchant_account_id,
+                    ..
                 },
-            },
-            user: User {
-                id: None,
-                name: Some("someone".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-        })
-        .await
-        .unwrap();
+                ..
+            }
+            if merchant_account_id == ctx.merchant_account_gbp_id
+        ));
+        assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
 
-    // Start authorization flow
-    let start_auth_flow_response = ctx
-        .client
-        .payments
-        .start_authorization_flow(
-            &res.id,
-            &StartAuthorizationFlowRequest {
-                provider_selection: Some(ProviderSelectionSupported {}),
-                redirect: Some(RedirectSupported {
-                    return_uri: MOCK_RETURN_URI.to_string(),
+        // Start authorization flow
+        let StartAuthorizationFlowResponse {
+            mut authorization_flow,
+            mut status,
+        } = ctx
+            .client
+            .payments
+            .start_authorization_flow(
+                &res.id,
+                &StartAuthorizationFlowRequest {
+                    provider_selection: Some(ProviderSelectionSupported {}),
+                    redirect: Some(RedirectSupported {
+                        return_uri: MOCK_RETURN_URI.to_string(),
+                    }),
+                },
+            )
+            .await
+            .unwrap();
+
+        if self.provider_selection == ScenarioProviderSelection::UserSelected {
+            // Assert that the next action in the auth flow is ProviderSelection
+            assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
+            assert!(matches!(
+                authorization_flow,
+                Some(AuthorizationFlow {
+                    actions: Some(AuthorizationFlowActions {
+                        next: AuthorizationFlowNextAction::ProviderSelection { providers, .. }
+                    }),
+                    ..
+                })
+                if !providers.is_empty()
+            ));
+
+            // Retrieve the payment by id and re-check its status
+            assert!(matches!(
+                ctx.client
+                    .payments
+                    .get_by_id(&res.id)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .status,
+                PaymentStatus::Authorizing {
+                    authorization_flow: AuthorizationFlow {
+                        actions: Some(AuthorizationFlowActions {
+                            next: AuthorizationFlowNextAction::ProviderSelection { providers, .. }
+                        }),
+                        ..
+                    }
+                }
+                if !providers.is_empty()
+            ));
+
+            // Submit provider selection
+            let submit_provider_selection_response = ctx
+                .client
+                .payments
+                .submit_provider_selection(
+                    &res.id,
+                    &SubmitProviderSelectionActionRequest {
+                        provider_id: MOCK_PROVIDER_ID.to_string(),
+                    },
+                )
+                .await
+                .unwrap();
+
+            status = submit_provider_selection_response.status;
+            authorization_flow = submit_provider_selection_response.authorization_flow;
+        }
+
+        // Assert that the next action in the auth flow is Redirect
+        assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
+        assert!(matches!(
+            authorization_flow,
+            Some(AuthorizationFlow {
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Redirect { uri, .. }
                 }),
-            },
-        )
-        .await
-        .unwrap();
+                ..
+            })
+            if Url::parse(&uri).is_ok()
+        ));
 
-    let redirect_uri = match start_auth_flow_response.authorization_flow {
-        Some(AuthorizationFlow {
-            actions:
-                Some(AuthorizationFlowActions {
-                    next: AuthorizationFlowNextAction::Redirect { uri, .. },
-                }),
-            ..
-        }) => uri,
-        _ => panic!("Unexpected authorization flow"),
-    };
+        // Retrieve the payment by id and re-check its status.
+        // Also extract the redirect uri because it will be needed to drive the payment to completion.
+        let payment = ctx
+            .client
+            .payments
+            .get_by_id(&res.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let redirect_uri = match payment.status {
+            PaymentStatus::Authorizing {
+                authorization_flow:
+                    AuthorizationFlow {
+                        actions:
+                            Some(AuthorizationFlowActions {
+                                next: AuthorizationFlowNextAction::Redirect { ref uri, .. },
+                            }),
+                        ..
+                    },
+            } => Url::parse(uri).unwrap(),
+            _ => panic!("Invalid payment state"),
+        };
 
-    let url = Url::parse(&redirect_uri).unwrap();
-    let simp_id = url.path_segments().unwrap().nth(1).unwrap();
-    let token = &url.fragment().unwrap()[6..];
+        // Drive the payment to completion (either success or failure)
+        ctx.complete_mock_bank_redirect_authorization(&redirect_uri, self.mock_bank_action.clone())
+            .await
+            .unwrap();
 
-    println!("SIMP ID: {}", simp_id);
-    println!("TOKEN: {}", token);
+        // Wait for the payment to reach a terminal state
+        let payment = payment
+            .poll_until_terminal_state(
+                &ctx.client,
+                PollOptions::default().with_retry_policy(
+                    ExponentialBackoff::builder()
+                        .build_with_total_retry_duration(Duration::from_secs(60)),
+                ),
+            )
+            .await
+            .unwrap();
 
-    reqwest::Client::new()
-        .post(
-            url.join(&format!(
-                "/api/single-immediate-payments/{}/action",
-                simp_id
-            ))
-            .unwrap(),
-        )
-        .bearer_auth(token)
-        .json(&serde_json::json!({
-            "redirect": false,
-            "action": "Execute" // "Execute" | "RejectAuthorisation" | "RejectExecution" | "Cancel"
-        }))
-        .send()
-        .await
-        .unwrap()
-        .error_for_status()
-        .unwrap();
+        // Assert that the payment reached the expected state
+        match &self.expected_status {
+            ScenarioExpectedStatus::ExecutedOrSettled => {
+                assert!(matches!(
+                    payment.status,
+                    PaymentStatus::Executed { .. } | PaymentStatus::Settled { .. }
+                ));
+            }
+            ScenarioExpectedStatus::Failed {
+                failure_stage: expected_failure_stage,
+                failure_reason: expected_failure_reason,
+            } => {
+                assert!(matches!(
+                    payment.status,
+                    PaymentStatus::Failed {
+                        ref failure_stage,
+                        ref failure_reason,
+                        ..
+                    } if failure_stage == expected_failure_stage && failure_reason == expected_failure_reason
+                ));
+            }
+        }
+    }
+}
 
-    println!("Done");
-
-    let payment = res
-        .poll_until_terminal_state(
-            &ctx.client,
-            PollOptions::default()
-                .with_retry_policy(ExponentialBackoff::builder().build_with_max_retries(u32::MAX)),
-        )
-        .await
-        .unwrap();
-
-    println!("{:#?}", payment);
+// Test all possible combinations of authorization outcomes
+#[test_case(
+    ScenarioProviderSelection::UserSelected,
+    MockBankAction::Execute,
+    ScenarioExpectedStatus::ExecutedOrSettled
+    ; "user selected provider successful authorization"
+)]
+#[test_case(
+    ScenarioProviderSelection::UserSelected,
+    MockBankAction::RejectAuthorisation,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" }
+    ; "user selected provider reject authorization"
+)]
+#[test_case(
+    ScenarioProviderSelection::UserSelected,
+    MockBankAction::RejectExecution,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" }
+    ; "user selected provider reject execution"
+)]
+#[test_case(
+    ScenarioProviderSelection::UserSelected,
+    MockBankAction::Cancel,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" }
+    ; "user selected provider canceled"
+)]
+#[test_case(
+    ScenarioProviderSelection::Preselected,
+    MockBankAction::Execute,
+    ScenarioExpectedStatus::ExecutedOrSettled
+    ; "preselected provider successful authorization"
+)]
+#[test_case(
+    ScenarioProviderSelection::Preselected,
+    MockBankAction::RejectAuthorisation,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" }
+    ; "preselected provider reject authorization"
+)]
+#[test_case(
+    ScenarioProviderSelection::Preselected,
+    MockBankAction::RejectExecution,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" }
+    ; "preselected provider reject execution"
+)]
+#[test_case(
+    ScenarioProviderSelection::Preselected,
+    MockBankAction::Cancel,
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" }
+    ; "preselected provider canceled"
+)]
+#[tokio::test]
+async fn create_payment_scenarios(
+    provider_selection: ScenarioProviderSelection,
+    mock_bank_action: MockBankAction,
+    expected_status: ScenarioExpectedStatus,
+) {
+    CreatePaymentScenario {
+        provider_selection,
+        mock_bank_action,
+        expected_status,
+    }
+    .run()
+    .await;
 }
