@@ -1,8 +1,10 @@
 mod middlewares;
 mod routes;
 
-use crate::common::mock_server::middlewares::MiddlewareFn;
+use crate::common::{mock_server::middlewares::MiddlewareFn, MockBankAction};
 use actix_web::{web, App, HttpServer};
+use anyhow::Context;
+use chrono::Utc;
 use reqwest::Url;
 use std::{
     collections::HashMap,
@@ -11,9 +13,15 @@ use std::{
 use tokio::sync::oneshot;
 use truelayer_rust::apis::{
     merchant_accounts::MerchantAccount,
-    payments::{AccountIdentifier, Currency, Payment},
+    payments::{
+        AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
+        AuthorizationFlowNextAction, Currency, FailureStage, Payment, PaymentStatus,
+    },
 };
 use uuid::Uuid;
+
+static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
+static MOCK_REDIRECT_URI: &str = "https://mock.redirect.uri/";
 
 #[derive(Clone)]
 struct MockServerConfiguration {
@@ -25,6 +33,7 @@ struct MockServerConfiguration {
     merchant_accounts: HashMap<Currency, MerchantAccount>,
 }
 
+/// In-memory storage for payments created on the mock server.
 type MockServerStorage = Arc<RwLock<HashMap<String, Payment>>>;
 
 /// Simple mock server for TrueLayer APIs used in local integration tests.
@@ -32,6 +41,7 @@ pub struct TrueLayerMockServer {
     url: Url,
     shutdown: Option<oneshot::Sender<()>>,
     configuration: MockServerConfiguration,
+    storage: MockServerStorage,
 }
 
 impl TrueLayerMockServer {
@@ -81,11 +91,15 @@ impl TrueLayerMockServer {
         };
         let configuration_clone = configuration.clone();
 
+        // Setup the in-memory storage
+        let storage = MockServerStorage::default();
+        let storage_clone = storage.clone();
+
         // Setup the mock HTTP server and bind it to a random port
         let http_server_factory = HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(configuration.clone()))
-                .app_data(web::Data::new(MockServerStorage::default()))
+                .app_data(web::Data::new(storage.clone()))
                 // User agent must be validated for each request
                 .wrap(MiddlewareFn::new(middlewares::validate_user_agent))
                 // Mock routes
@@ -153,6 +167,7 @@ impl TrueLayerMockServer {
             url: Url::parse(&format!("http://{}", addr)).unwrap(),
             shutdown: Some(shutdown_sender),
             configuration: configuration_clone,
+            storage: storage_clone,
         }
     }
 
@@ -162,6 +177,71 @@ impl TrueLayerMockServer {
 
     pub fn merchant_account(&self, currency: Currency) -> Option<&MerchantAccount> {
         self.configuration.merchant_accounts.get(&currency)
+    }
+
+    pub async fn complete_mock_bank_redirect_authorization(
+        &self,
+        redirect_uri: &Url,
+        action: MockBankAction,
+    ) -> Result<(), anyhow::Error> {
+        // Redirect uri is in the form `https://mock.redirect.uri/{payment_id}`
+        let payment_id = redirect_uri
+            .path_segments()
+            .map(|mut it| it.next())
+            .flatten()
+            .context("Missing payment id")?;
+
+        let mut map = self.storage.write().unwrap();
+        let payment = map.get_mut(payment_id).context("Payment not found")?;
+
+        // Ensure the payment was in Authorizing state waiting for the redirect to complete
+        let auth_flow_configuration = match payment.status {
+            PaymentStatus::Authorizing {
+                authorization_flow:
+                    AuthorizationFlow {
+                        actions:
+                            Some(AuthorizationFlowActions {
+                                next: AuthorizationFlowNextAction::Redirect { .. },
+                            }),
+                        ref configuration,
+                    },
+                ..
+            } => configuration.clone(),
+            _ => return Err(anyhow::anyhow!("Invalid payment authorization flow state")),
+        };
+
+        let next_auth_flow = AuthorizationFlow {
+            actions: None,
+            configuration: auth_flow_configuration,
+        };
+
+        // Change payment status
+        payment.status = match action {
+            MockBankAction::Execute => PaymentStatus::Executed {
+                executed_at: Utc::now(),
+                authorization_flow: Some(next_auth_flow),
+            },
+            MockBankAction::RejectAuthorisation => PaymentStatus::Failed {
+                failed_at: Utc::now(),
+                failure_stage: FailureStage::Authorizing,
+                failure_reason: "authorization_failed".to_string(),
+                authorization_flow: Some(next_auth_flow),
+            },
+            MockBankAction::RejectExecution => PaymentStatus::Failed {
+                failed_at: Utc::now(),
+                failure_stage: FailureStage::Authorized,
+                failure_reason: "provider_rejected".to_string(),
+                authorization_flow: Some(next_auth_flow),
+            },
+            MockBankAction::Cancel => PaymentStatus::Failed {
+                failed_at: Utc::now(),
+                failure_stage: FailureStage::Authorizing,
+                failure_reason: "canceled".to_string(),
+                authorization_flow: Some(next_auth_flow),
+            },
+        };
+
+        Ok(())
     }
 }
 

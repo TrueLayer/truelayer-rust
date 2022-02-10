@@ -1,4 +1,4 @@
-use crate::common::mock_server::TrueLayerMockServer;
+use crate::common::{mock_server::TrueLayerMockServer, MockBankAction};
 use openssl::{
     ec::{EcGroup, EcKey},
     nid::Nid,
@@ -8,6 +8,7 @@ use truelayer_rust::{
     client::Environment,
     TrueLayerClient,
 };
+use url::Url;
 use uuid::Uuid;
 
 pub struct TestContext {
@@ -60,5 +61,15 @@ impl TestContext {
 
     pub fn tl_environment(&self) -> Environment {
         Environment::from_single_url(self.mock_server.url())
+    }
+
+    pub async fn complete_mock_bank_redirect_authorization(
+        &self,
+        redirect_uri: &Url,
+        action: MockBankAction,
+    ) -> Result<(), anyhow::Error> {
+        self.mock_server
+            .complete_mock_bank_redirect_authorization(redirect_uri, action)
+            .await
     }
 }

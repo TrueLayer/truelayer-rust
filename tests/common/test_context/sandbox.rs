@@ -1,4 +1,7 @@
+use crate::common::MockBankAction;
+use anyhow::Context;
 use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClient};
+use url::Url;
 
 pub struct TestContext {
     pub client: TrueLayerClient,
@@ -33,5 +36,41 @@ impl TestContext {
 
     pub fn tl_environment(&self) -> Environment {
         Environment::Sandbox
+    }
+
+    pub async fn complete_mock_bank_redirect_authorization(
+        &self,
+        redirect_uri: &Url,
+        action: MockBankAction,
+    ) -> Result<(), anyhow::Error> {
+        // The redirect uri from mock-bank looks like this:
+        // https://pay-mock-connect.truelayer-sandbox.com/login/{simp_id}#token={auth_token}
+        let simp_id = redirect_uri
+            .path_segments()
+            .context("Invalid redirect uri")?
+            .nth(1)
+            .context("Invalid redirect uri")?;
+        let token = &redirect_uri.fragment().context("Invalid redirect uri")?[6..];
+
+        // Make a POST to mock-bank to set the authorization result
+        reqwest::Client::new()
+            .post(
+                redirect_uri
+                    .join(&format!(
+                        "/api/single-immediate-payments/{}/action",
+                        simp_id
+                    ))
+                    .unwrap(),
+            )
+            .bearer_auth(token)
+            .json(&serde_json::json!({
+                "redirect": false,
+                "action": action
+            }))
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(())
     }
 }

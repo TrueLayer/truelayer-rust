@@ -1,4 +1,6 @@
-use crate::common::mock_server::{MockServerConfiguration, MockServerStorage};
+use crate::common::mock_server::{
+    MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_ID, MOCK_REDIRECT_URI,
+};
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use serde_json::json;
@@ -12,9 +14,6 @@ use truelayer_rust::apis::{
     },
 };
 use uuid::Uuid;
-
-static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
-static MOCK_REDIRECT_URI: &str = "https://my.redirect.uri";
 
 /// POST /connect/token
 pub(super) async fn post_auth(
@@ -130,7 +129,7 @@ pub(super) async fn start_authorization_flow(
             // Choose the next action depending on whether the provider has already been preselected or not
             let next_action = if is_provider_preselected {
                 AuthorizationFlowNextAction::Redirect {
-                    uri: MOCK_REDIRECT_URI.to_string(),
+                    uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
                     metadata: None,
                 }
             } else {
@@ -200,7 +199,7 @@ pub(super) async fn submit_provider_selection(
                 configuration: None,
                 actions: Some(AuthorizationFlowActions {
                     next: AuthorizationFlowNextAction::Redirect {
-                        uri: MOCK_REDIRECT_URI.to_string(),
+                        uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
                         metadata: None,
                     },
                 }),
