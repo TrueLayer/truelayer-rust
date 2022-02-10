@@ -87,7 +87,7 @@ async fn process_get_access_token(
             tracing::debug!("Reusing existing access token");
             return Ok(AuthenticationResult {
                 access_token: token.clone(),
-                refresh_token: state.credentials.refresh_token().map(String::from),
+                refresh_token: state.credentials.refresh_token().cloned(),
             });
         }
     }
@@ -112,7 +112,7 @@ async fn process_get_access_token(
 
     // Store the access token
     let token = AccessToken {
-        token: res.access_token,
+        token: res.access_token.into(),
         expires_at: Some(now() + Duration::seconds(res.expires_in)),
     };
     state.access_token = Some(token.clone());
@@ -123,8 +123,8 @@ async fn process_get_access_token(
     if let Some(refresh_token) = &res.refresh_token {
         state.credentials = Credentials::RefreshToken {
             client_id: state.credentials.client_id().to_string(),
-            client_secret: state.credentials.client_secret().to_string(),
-            refresh_token: refresh_token.clone(),
+            client_secret: state.credentials.client_secret().clone(),
+            refresh_token: refresh_token.clone().into(),
         };
 
         tracing::info!("Switching to refresh token for subsequent authentication requests");
@@ -132,7 +132,7 @@ async fn process_get_access_token(
 
     Ok(AuthenticationResult {
         access_token: token,
-        refresh_token: res.refresh_token,
+        refresh_token: res.refresh_token.map(Token::from),
     })
 }
 
@@ -149,6 +149,7 @@ fn should_refresh_token(token: &AccessToken) -> bool {
 fn now() -> chrono::DateTime<Utc> {
     Utc::now()
 }
+use crate::apis::auth::Token;
 #[cfg(test)]
 use tests::mocked_time::now;
 
@@ -237,7 +238,7 @@ mod tests {
     fn mock_authenticator(auth_url: &str) -> Authenticator {
         let credentials = Credentials::ClientCredentials {
             client_id: MOCK_CLIENT_ID.to_string(),
-            client_secret: MOCK_CLIENT_SECRET.to_string(),
+            client_secret: MOCK_CLIENT_SECRET.to_string().into(),
             scope: "mock".to_string(),
         };
 
@@ -274,16 +275,19 @@ mod tests {
 
             // Assert that we got the same response twice
             assert_eq!(
-                auth_result1.access_token.token(),
-                auth_result2.access_token.token()
+                auth_result1.access_token.expose_secret(),
+                auth_result2.access_token.expose_secret()
             );
             assert_eq!(
                 auth_result1.access_token.expires_at(),
                 auth_result2.access_token.expires_at()
             );
-            assert_eq!(auth_result1.refresh_token, auth_result2.refresh_token);
             assert_eq!(
-                auth_result1.access_token.token(),
+                auth_result1.refresh_token.as_ref().map(Token::expose_secret),
+                auth_result2.refresh_token.as_ref().map(Token::expose_secret)
+            );
+            assert_eq!(
+                auth_result1.access_token.expose_secret(),
                 format!("{}-0", MOCK_ACCESS_TOKEN)
             );
             assert!(auth_result1.access_token.expires_at().is_some());
@@ -297,8 +301,8 @@ mod tests {
             // We still get the same token
             let auth_result3 = authenticator.get_access_token().await.unwrap();
             assert_eq!(
-                auth_result1.access_token.token(),
-                auth_result3.access_token.token()
+                auth_result1.access_token.expose_secret(),
+                auth_result3.access_token.expose_secret()
             );
             assert_eq!(
                 auth_result1.access_token.expires_at(),
@@ -313,11 +317,11 @@ mod tests {
             // We get a new token
             let auth_result4 = authenticator.get_access_token().await.unwrap();
             assert_ne!(
-                auth_result1.access_token.token(),
-                auth_result4.access_token.token()
+                auth_result1.access_token.expose_secret(),
+                auth_result4.access_token.expose_secret()
             );
             assert_eq!(
-                auth_result4.access_token.token(),
+                auth_result4.access_token.expose_secret(),
                 format!("{}-1", MOCK_ACCESS_TOKEN)
             );
             assert!(
@@ -365,14 +369,20 @@ mod tests {
 
             // Authenticate the first time. This will use client credentials.
             let res = authenticator.get_access_token().await.unwrap();
-            assert_eq!(res.refresh_token.unwrap(), MOCK_REFRESH_TOKEN);
+            assert_eq!(
+                res.refresh_token.unwrap().expose_secret(),
+                MOCK_REFRESH_TOKEN
+            );
 
             // Fast forward time to make the token expire
             mocked_time::set_now(res.access_token.expires_at().unwrap());
 
             // Authenticate again. This will use the refresh token from the previous call.
             let res2 = authenticator.get_access_token().await.unwrap();
-            assert_eq!(res2.refresh_token.unwrap(), MOCK_REFRESH_TOKEN);
+            assert_eq!(
+                res2.refresh_token.unwrap().expose_secret(),
+                MOCK_REFRESH_TOKEN
+            );
             assert!(res2.access_token.expires_at.unwrap() > res.access_token.expires_at.unwrap());
         })
         .await;
@@ -410,7 +420,10 @@ mod tests {
 
         // Assert that all the attempts yielded the same results
         for res in &results {
-            assert_eq!(res.access_token.token, format!("{}-0", MOCK_ACCESS_TOKEN));
+            assert_eq!(
+                res.access_token.expose_secret(),
+                format!("{}-0", MOCK_ACCESS_TOKEN)
+            );
         }
     }
 }

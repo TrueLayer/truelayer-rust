@@ -21,7 +21,7 @@ impl TestContext {
         // Configure a new TrueLayerClient to point to Sandbox
         let client = TrueLayerClient::builder(Credentials::ClientCredentials {
             client_id,
-            client_secret,
+            client_secret: client_secret.into(),
             scope: "payments paydirect".to_string(),
         })
         .with_signing_key(&signing_key_id, signing_private_key.into_bytes())

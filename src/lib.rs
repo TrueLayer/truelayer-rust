@@ -34,7 +34,7 @@
 //! # let private_key = vec![];
 //! let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
 //!     client_id: "some-client-id".to_string(),
-//!     client_secret: "some-client-secret".to_string(),
+//!     client_secret: "some-client-secret".to_string().into(),
 //!     scope: "payments".to_string(),
 //! })
 //! .with_signing_key("my-kid", private_key)

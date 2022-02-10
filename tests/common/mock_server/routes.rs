@@ -26,7 +26,7 @@ pub(super) async fn post_auth(
             client_secret,
             ..
         } if client_id == configuration.client_id
-            && client_secret == configuration.client_secret =>
+            && client_secret.expose_secret() == configuration.client_secret =>
         {
             HttpResponse::Ok().json(json!({
                 "token_type": "Bearer",

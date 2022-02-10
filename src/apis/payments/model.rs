@@ -1,4 +1,4 @@
-use crate::{pollable::IsInTerminalState, Error, Pollable, TrueLayerClient};
+use crate::{apis::auth::Token, pollable::IsInTerminalState, Error, Pollable, TrueLayerClient};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -16,7 +16,7 @@ pub struct CreatePaymentRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentResponse {
     pub id: String,
-    pub resource_token: String,
+    pub resource_token: Token,
     pub user: CreatePaymentUserResponse,
 }
 

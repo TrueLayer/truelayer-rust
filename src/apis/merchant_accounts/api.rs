@@ -97,7 +97,7 @@ mod tests {
 
         let credentials = Credentials::ClientCredentials {
             client_id: "client-id".to_string(),
-            client_secret: "client-secret".to_string(),
+            client_secret: "client-secret".to_string().into(),
             scope: "mock".to_string(),
         };
 

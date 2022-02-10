@@ -141,7 +141,7 @@ impl CreatePaymentScenario {
 
         // Assert that we got sensible values back
         assert!(!res.id.is_empty());
-        assert!(!res.resource_token.is_empty());
+        assert!(!res.resource_token.expose_secret().is_empty());
         assert!(!res.user.id.is_empty());
 
         // Fetch the same payment

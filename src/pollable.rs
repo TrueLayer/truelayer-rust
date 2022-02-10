@@ -217,7 +217,7 @@ mod tests {
     fn mock_tl_client() -> TrueLayerClient {
         TrueLayerClient::builder(Credentials::ClientCredentials {
             client_id: "".to_string(),
-            client_secret: "".to_string(),
+            client_secret: "".to_string().into(),
             scope: "".to_string(),
         })
         .with_environment(Environment::from_single_url(
