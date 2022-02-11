@@ -96,9 +96,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         let credentials = Credentials::ClientCredentials {
-            client_id: "client-id".to_string(),
-            client_secret: "client-secret".to_string().into(),
-            scope: "mock".to_string(),
+            client_id: "client-id".into(),
+            client_secret: "client-secret".into(),
+            scope: "mock".into(),
         };
 
         let authenticator = Authenticator::new(

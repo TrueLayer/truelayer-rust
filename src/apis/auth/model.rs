@@ -103,21 +103,45 @@ impl Deref for AccessToken {
     }
 }
 
+/// Wrapper for a secret string that makes it harder to accidentally expose secrets
+/// and ensures the backing memory is wiped on drop.
+///
+/// It is a wrapper around a [`secrecy::Secret`](secrecy::Secret).
+///
+/// ```rust
+/// # use truelayer_rust::apis::auth::Token;
+/// let token = Token::new("supersecret");
+///
+/// // The secret is redacted when printed with Debug
+/// assert!(!format!("{:?}", token).contains("supersecret"));
+///
+/// // But can be manually exposed calling `expose_secret()`...
+/// assert_eq!(token.expose_secret(), "supersecret");
+///
+/// // ... Or if serialized with Serde
+/// let serialized = serde_json::to_string(&token).unwrap();
+/// assert!(serialized.contains("supersecret"));
+/// ```
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Token(#[serde(serialize_with = "serialize_secret")] Secret<String>);
 
 impl Token {
-    pub fn new(s: String) -> Self {
-        Self(Secret::new(s))
+    /// Wraps a secret string in a new `Token`.
+    pub fn new<T: Into<String>>(s: T) -> Self {
+        Self(Secret::new(s.into()))
     }
 
+    /// Exposes a reference to the underlying secret string.
     pub fn expose_secret(&self) -> &str {
         self.0.expose_secret()
     }
 }
 
-impl From<String> for Token {
-    fn from(s: String) -> Self {
+impl<T> From<T> for Token
+where
+    T: Into<String>,
+{
+    fn from(s: T) -> Self {
         Token::new(s)
     }
 }
@@ -127,23 +151,4 @@ where
     S: serde::ser::Serializer,
 {
     secret.expose_secret().serialize(serializer)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn token_debug_implementation_does_not_leak_secrets() {
-        let token = Token::new("supersecret".to_string());
-        let repr = format!("{:?}", token);
-        assert!(!repr.contains("supersecret"));
-    }
-
-    #[test]
-    fn token_serialize_implementation_exposes_secrets() {
-        let token = Token::new("supersecret".to_string());
-        let repr = serde_json::to_string(&token).unwrap();
-        assert!(repr.contains("supersecret"));
-    }
 }

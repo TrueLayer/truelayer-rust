@@ -237,9 +237,9 @@ mod tests {
 
     fn mock_authenticator(auth_url: &str) -> Authenticator {
         let credentials = Credentials::ClientCredentials {
-            client_id: MOCK_CLIENT_ID.to_string(),
-            client_secret: MOCK_CLIENT_SECRET.to_string().into(),
-            scope: "mock".to_string(),
+            client_id: MOCK_CLIENT_ID.into(),
+            client_secret: MOCK_CLIENT_SECRET.into(),
+            scope: "mock".into(),
         };
 
         Authenticator::new(

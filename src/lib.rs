@@ -33,9 +33,9 @@
 //! # use truelayer_rust::{TrueLayerClient, apis::auth::*};
 //! # let private_key = vec![];
 //! let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
-//!     client_id: "some-client-id".to_string(),
-//!     client_secret: "some-client-secret".to_string().into(),
-//!     scope: "payments".to_string(),
+//!     client_id: "some-client-id".into(),
+//!     client_secret: "some-client-secret".into(),
+//!     scope: "payments".into(),
 //! })
 //! .with_signing_key("my-kid", private_key)
 //! .build();
