@@ -38,7 +38,7 @@ impl TestContext {
         // Configure a new TrueLayerClient to point to the mock server
         let client = TrueLayerClient::builder(Credentials::ClientCredentials {
             client_id: client_id.clone(),
-            client_secret: client_secret.clone(),
+            client_secret: client_secret.clone().into(),
             scope: "payments paydirect".to_string(),
         })
         .with_signing_key(

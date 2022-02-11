@@ -14,7 +14,7 @@ async fn get_access_token() {
         .access_token()
         .clone();
 
-    assert!(!access_token.token().is_empty());
+    assert!(!access_token.expose_secret().is_empty());
 }
 
 #[tokio::test]
@@ -23,9 +23,9 @@ async fn invalid_credentials() {
 
     // Create a new client with a set of invalid credentials pointing to the same mock server
     let client = TrueLayerClient::builder(Credentials::ClientCredentials {
-        client_id: "invalid".to_string(),
-        client_secret: "invalid".to_string(),
-        scope: "payments paydirect".to_string(),
+        client_id: "invalid".into(),
+        client_secret: "invalid".into(),
+        scope: "payments paydirect".into(),
     })
     .with_environment(ctx.tl_environment())
     .build();

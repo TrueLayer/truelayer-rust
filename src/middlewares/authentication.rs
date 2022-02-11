@@ -22,9 +22,11 @@ impl Middleware for AuthenticationMiddleware {
         let access_token = self.authenticator.get_access_token().await?;
 
         // Inject the access token as a header
-        let mut header_value =
-            HeaderValue::from_str(&format!("Bearer {}", access_token.access_token.token()))
-                .map_err(|e| reqwest_middleware::Error::Middleware(e.into()))?;
+        let mut header_value = HeaderValue::from_str(&format!(
+            "Bearer {}",
+            access_token.access_token.expose_secret()
+        ))
+        .map_err(|e| reqwest_middleware::Error::Middleware(e.into()))?;
         header_value.set_sensitive(true);
         req.headers_mut().insert("Authorization", header_value);
 
@@ -51,9 +53,9 @@ mod tests {
 
     fn mock_authenticator(auth_url: &str) -> Authenticator {
         let credentials = Credentials::ClientCredentials {
-            client_id: MOCK_CLIENT_ID.to_string(),
-            client_secret: MOCK_CLIENT_SECRET.to_string(),
-            scope: "mock".to_string(),
+            client_id: MOCK_CLIENT_ID.into(),
+            client_secret: MOCK_CLIENT_SECRET.into(),
+            scope: "mock".into(),
         };
 
         Authenticator::new(

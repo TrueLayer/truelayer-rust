@@ -39,7 +39,7 @@ async fn run() -> anyhow::Result<()> {
     // Setup TrueLayer client
     let tl = TrueLayerClient::builder(Credentials::ClientCredentials {
         client_id: config.client_id,
-        client_secret: config.client_secret,
+        client_secret: config.client_secret.into(),
         scope: "payments".to_string(),
     })
     .with_signing_key(&config.key_id, config.private_key.into_bytes())

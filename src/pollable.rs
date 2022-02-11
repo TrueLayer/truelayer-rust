@@ -216,9 +216,9 @@ mod tests {
 
     fn mock_tl_client() -> TrueLayerClient {
         TrueLayerClient::builder(Credentials::ClientCredentials {
-            client_id: "".to_string(),
-            client_secret: "".to_string(),
-            scope: "".to_string(),
+            client_id: "".into(),
+            client_secret: "".into(),
+            scope: "".into(),
         })
         .with_environment(Environment::from_single_url(
             &Url::parse("https://non.existent.domain").unwrap(),
