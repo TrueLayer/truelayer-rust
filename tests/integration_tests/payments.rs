@@ -42,7 +42,7 @@ async fn hpp_link_returns_200() {
         .client
         .payments
         .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
+            amount_in_minor: 1,
             currency: Currency::Gbp,
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected { filter: None },
@@ -111,7 +111,7 @@ impl CreatePaymentScenario {
             .client
             .payments
             .create(&CreatePaymentRequest {
-                amount_in_minor: 100,
+                amount_in_minor: 1,
                 currency: Currency::Gbp,
                 payment_method: PaymentMethod::BankTransfer {
                     provider_selection: match self.provider_selection {
@@ -155,7 +155,7 @@ impl CreatePaymentScenario {
 
         // Ensure the returned payment contains correct data
         assert_eq!(payment.id, res.id);
-        assert_eq!(payment.amount_in_minor, 100);
+        assert_eq!(payment.amount_in_minor, 1);
         assert_eq!(payment.currency, Currency::Gbp);
         assert_eq!(payment.user.id, Some(res.user.id));
         assert_eq!(payment.user.name.as_deref(), Some("someone"));
