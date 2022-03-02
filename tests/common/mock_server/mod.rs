@@ -187,8 +187,7 @@ impl TrueLayerMockServer {
         // Redirect uri is in the form `https://mock.redirect.uri/{payment_id}`
         let payment_id = redirect_uri
             .path_segments()
-            .map(|mut it| it.next())
-            .flatten()
+            .and_then(|mut it| it.next())
             .context("Missing payment id")?;
 
         let mut map = self.storage.write().unwrap();
