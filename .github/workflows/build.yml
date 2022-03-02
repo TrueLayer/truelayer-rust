@@ -23,6 +23,7 @@ jobs:
       - name: Install cargo-nextest
         run: |
           curl -LsSf https://get.nexte.st/0.9/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+          cargo nextest --version
       - uses: Swatinem/rust-cache@v1
       - name: Check format
         run: cargo fmt --all -- --check
