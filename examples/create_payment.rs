@@ -24,11 +24,10 @@ struct Config {
 
 impl Config {
     fn read() -> anyhow::Result<Self> {
-        let mut conf = config::Config::new();
-        conf
-            // Add in `./config.json`
-            .merge(config::File::with_name("config"))?;
-        conf.try_into()
+        config::Config::builder()
+            .add_source(config::File::with_name("config"))
+            .build()?
+            .try_deserialize()
             .context("Failed to assemble the required configuration")
     }
 }
