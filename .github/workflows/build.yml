@@ -20,6 +20,9 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+      - name: Install cargo-nextest
+        run: |
+          curl -LsSf https://get.nexte.st/0.9/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - uses: Swatinem/rust-cache@v1
       - name: Check format
         run: cargo fmt --all -- --check
@@ -27,8 +30,6 @@ jobs:
         run: cargo build --all-targets --workspace
       - name: Clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
-      - name: Install cargo-nextest
-        run: cargo install cargo-nextest --version '0.9.8'
       - name: Test
         run: |
           cargo nextest run --all-targets --workspace
