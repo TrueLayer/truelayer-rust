@@ -25,7 +25,7 @@ uuid = { version = "0.8", features = [ "v4" ] }
 
 [dev-dependencies]
 actix-web = "4.0.1"
-config = "0.11"
+config = "0.12"
 futures = "0.3"
 openssl = "0.10"
 test-case = "2.0.0"
