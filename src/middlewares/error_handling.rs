@@ -59,8 +59,7 @@ async fn api_error_from_response(response: Response) -> reqwest_middleware::Resu
     let tl_correlation_id = response
         .headers()
         .get(TL_CORRELATION_ID_HEADER)
-        .map(|v| v.to_str().ok())
-        .flatten()
+        .and_then(|v| v.to_str().ok())
         .map(|v| v.to_string());
 
     // Parse the response body as JSON
