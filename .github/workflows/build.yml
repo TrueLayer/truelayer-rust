@@ -27,8 +27,12 @@ jobs:
         run: cargo build --all-targets --workspace
       - name: Clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest
       - name: Test
-        run: cargo test --all-targets --workspace
+        run: |
+          cargo nextest run
+          cargo test --doc
       - name: Acceptance tests in Sandbox environment
         if: ${{ github.ref == 'refs/heads/main' }}
         env:
