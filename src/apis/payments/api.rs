@@ -188,8 +188,9 @@ mod tests {
             auth::Credentials,
             payments::{
                 AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-                CountryCode, Currency, FailureStage, PaymentMethod, PaymentStatus, Provider,
-                ProviderSelection, ProviderSelectionSupported, RedirectSupported, User,
+                CountryCode, CreatePaymentUserRequest, Currency, FailureStage, PaymentMethod,
+                PaymentStatus, Provider, ProviderSelection, ProviderSelectionSupported,
+                RedirectSupported, User,
             },
         },
         authenticator::Authenticator,
@@ -277,12 +278,10 @@ mod tests {
                         account_holder_name: None,
                     },
                 },
-                user: User {
-                    id: Some("user-id".to_string()),
-                    name: None,
-                    email: None,
-                    phone: None,
+                user: CreatePaymentUserRequest::ExistingUser {
+                    id: "user-id".to_string(),
                 },
+                metadata: None,
             })
             .await
             .unwrap();
@@ -537,7 +536,7 @@ mod tests {
         assert_eq!(
             payment.user,
             User {
-                id: Some("user-id".to_string()),
+                id: "user-id".to_string(),
                 name: None,
                 email: None,
                 phone: None

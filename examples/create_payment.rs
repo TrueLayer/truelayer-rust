@@ -3,7 +3,8 @@ use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
-            Beneficiary, CreatePaymentRequest, Currency, PaymentMethod, ProviderSelection, User,
+            Beneficiary, CreatePaymentRequest, CreatePaymentUserRequest, Currency, PaymentMethod,
+            ProviderSelection,
         },
     },
     client::Environment,
@@ -11,7 +12,6 @@ use truelayer_rust::{
     TrueLayerClient,
 };
 use url::Url;
-use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]
 struct Config {
@@ -75,12 +75,12 @@ async fn run() -> anyhow::Result<()> {
                     account_holder_name: None,
                 },
             },
-            user: User {
-                id: Some(Uuid::new_v4().to_string()),
+            user: CreatePaymentUserRequest::NewUser {
                 name: Some("Some One".to_string()),
                 email: Some("some.one@email.com".to_string()),
                 phone: None,
             },
+            metadata: None,
         })
         .await?;
 

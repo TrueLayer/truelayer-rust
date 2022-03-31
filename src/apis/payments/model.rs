@@ -3,14 +3,31 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
     pub payment_method: PaymentMethod,
-    pub user: User,
+    pub user: CreatePaymentUserRequest,
+    pub metadata: Option<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum CreatePaymentUserRequest {
+    ExistingUser {
+        id: String,
+    },
+    NewUser {
+        name: Option<String>,
+        email: Option<String>,
+        phone: Option<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,6 +63,7 @@ pub struct Payment {
     pub user: User,
     pub payment_method: PaymentMethod,
     pub created_at: DateTime<Utc>,
+    pub metadata: Option<HashMap<String, String>>,
     #[serde(flatten)]
     pub status: PaymentStatus,
 }
@@ -153,9 +171,9 @@ pub enum Beneficiary {
         account_holder_name: Option<String>,
     },
     ExternalAccount {
-        account_holder_name: Option<String>,
-        reference: String,
+        account_holder_name: String,
         account_identifier: AccountIdentifier,
+        reference: String,
     },
 }
 
@@ -290,7 +308,7 @@ pub struct RedirectSupported {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct User {
-    pub id: Option<String>,
+    pub id: String,
     pub name: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
