@@ -66,12 +66,12 @@
 //!                 account_holder_name: None,
 //!             },
 //!         },
-//!         user: User {
-//!             id: Some(Uuid::new_v4().to_string()),
+//!         user: CreatePaymentUserRequest::NewUser {
 //!             name: Some("Some One".to_string()),
 //!             email: Some("some.one@email.com".to_string()),
 //!             phone: None,
 //!         },
+//!         metadata: None
 //!     })
 //!     .await?;
 //!
