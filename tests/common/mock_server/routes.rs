@@ -8,8 +8,8 @@ use truelayer_rust::apis::{
     auth::Credentials,
     payments::{
         AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-        AuthorizationFlowResponseStatus, CreatePaymentRequest, Payment, PaymentMethod,
-        PaymentStatus, Provider, ProviderSelection, StartAuthorizationFlowRequest,
+        AuthorizationFlowResponseStatus, CreatePaymentRequest, CreatePaymentUserRequest, Payment,
+        PaymentMethod, PaymentStatus, Provider, ProviderSelection, StartAuthorizationFlowRequest,
         StartAuthorizationFlowResponse, SubmitProviderSelectionActionRequest, User,
     },
 };
@@ -46,11 +46,20 @@ pub(super) async fn create_payment(
     create_payment_request: web::Json<CreatePaymentRequest>,
 ) -> HttpResponse {
     let id = Uuid::new_v4().to_string();
-    let user_id = create_payment_request
-        .user
-        .id
-        .clone()
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let user = match create_payment_request.user.clone() {
+        CreatePaymentUserRequest::NewUser { name, email, phone } => User {
+            id: Uuid::new_v4().to_string(),
+            name,
+            email,
+            phone,
+        },
+        CreatePaymentUserRequest::ExistingUser { id } => User {
+            id,
+            name: None,
+            email: None,
+            phone: None,
+        },
+    };
 
     storage.write().unwrap().insert(
         id.clone(),
@@ -58,13 +67,11 @@ pub(super) async fn create_payment(
             id: id.clone(),
             amount_in_minor: create_payment_request.amount_in_minor,
             currency: create_payment_request.currency.clone(),
-            user: User {
-                id: Some(user_id.clone()),
-                ..create_payment_request.user.clone()
-            },
+            user: user.clone(),
             payment_method: create_payment_request.payment_method.clone(),
             created_at: Utc::now(),
             status: PaymentStatus::AuthorizationRequired,
+            metadata: create_payment_request.metadata.clone(),
         },
     );
 
@@ -72,7 +79,7 @@ pub(super) async fn create_payment(
         "id": id,
         "resource_token": format!("resource-token-{}", id),
         "user": {
-            "id": user_id
+            "id": user.id
         }
     }))
 }

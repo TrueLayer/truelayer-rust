@@ -1,14 +1,15 @@
 use crate::common::{test_context::TestContext, MockBankAction};
 use retry_policies::policies::ExponentialBackoff;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
 use truelayer_rust::{
     apis::payments::{
         AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-        AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest, Currency, FailureStage,
-        PaymentMethod, PaymentStatus, ProviderSelection, ProviderSelectionSupported,
-        RedirectSupported, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitProviderSelectionActionRequest, User,
+        AuthorizationFlowResponseStatus, Beneficiary, CreatePaymentRequest,
+        CreatePaymentUserRequest, Currency, FailureStage, PaymentMethod, PaymentStatus,
+        ProviderSelection, ProviderSelectionSupported, RedirectSupported,
+        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
+        SubmitProviderSelectionActionRequest,
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -51,12 +52,12 @@ async fn hpp_link_returns_200() {
                     account_holder_name: None,
                 },
             },
-            user: User {
-                id: None,
+            user: CreatePaymentUserRequest::NewUser {
                 name: Some("someone".to_string()),
                 email: Some("some.one@email.com".to_string()),
                 phone: None,
             },
+            metadata: None,
         })
         .await
         .unwrap();
@@ -129,12 +130,16 @@ impl CreatePaymentScenario {
                         account_holder_name: None,
                     },
                 },
-                user: User {
-                    id: None,
+                user: CreatePaymentUserRequest::NewUser {
                     name: Some("someone".to_string()),
                     email: Some("some.one@email.com".to_string()),
                     phone: None,
                 },
+                metadata: Some({
+                    let mut map = HashMap::new();
+                    map.insert("some".into(), "metadata".into());
+                    map
+                }),
             })
             .await
             .unwrap();
@@ -157,7 +162,7 @@ impl CreatePaymentScenario {
         assert_eq!(payment.id, res.id);
         assert_eq!(payment.amount_in_minor, 1);
         assert_eq!(payment.currency, Currency::Gbp);
-        assert_eq!(payment.user.id, Some(res.user.id));
+        assert_eq!(payment.user.id, res.user.id);
         assert_eq!(payment.user.name.as_deref(), Some("someone"));
         assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
         assert_eq!(payment.user.phone, None);
@@ -173,6 +178,10 @@ impl CreatePaymentScenario {
             if merchant_account_id == ctx.merchant_account_gbp_id
         ));
         assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
+        assert_eq!(
+            payment.metadata.unwrap().get("some"),
+            Some(&"metadata".into())
+        );
 
         // Start authorization flow
         let StartAuthorizationFlowResponse {
