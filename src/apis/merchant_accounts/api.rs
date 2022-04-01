@@ -1,6 +1,9 @@
 use crate::{
     apis::{
-        merchant_accounts::{MerchantAccount, SetupSweepingRequest, SweepingSettings},
+        merchant_accounts::{
+            ListPaymentSourcesRequest, MerchantAccount, SetupSweepingRequest, SweepingSettings,
+        },
+        payments::PaymentSource,
         TrueLayerClientInner,
     },
     common::IDEMPOTENCY_KEY_HEADER,
@@ -178,6 +181,41 @@ impl MerchantAccountsApi {
 
         Ok(settings)
     }
+
+    /// Gets the payment sources from which the merchant account has received payment
+    #[tracing::instrument(
+        name = "List Payment Sources",
+        skip(self, request),
+        fields(
+            user_id = %request.user_id
+        )
+    )]
+    pub async fn list_payment_sources(
+        &self,
+        merchant_account_id: &str,
+        request: &ListPaymentSourcesRequest,
+    ) -> Result<Vec<PaymentSource>, Error> {
+        let res: ListResponse<_> = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/payment-sources",
+                        merchant_account_id
+                    ))
+                    .unwrap(),
+            )
+            .query(request)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res.items)
+    }
 }
 
 #[derive(Deserialize)]
@@ -201,7 +239,7 @@ mod tests {
     use reqwest::Url;
     use serde_json::json;
     use wiremock::{
-        matchers::{body_partial_json, method, path},
+        matchers::{body_partial_json, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
 
@@ -517,5 +555,106 @@ mod tests {
             .unwrap();
 
         assert_eq!(sweeping_settings, None);
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": [
+                    {
+                        "id": "payment-source-id",
+                        "account_identifiers": [
+                            {
+                                "type": "sort_code_account_number",
+                                "sort_code": "sort-code",
+                                "account_number": "account-number"
+                            }
+                        ],
+                        "account_holder_name": "Mr. Holder"
+                    }
+                ]
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let payment_sources = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            payment_sources,
+            vec![PaymentSource {
+                id: "payment-source-id".to_string(),
+                account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                    sort_code: "sort-code".to_string(),
+                    account_number: "account-number".to_string()
+                }],
+                account_holder_name: Some("Mr. Holder".to_string())
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources_empty() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": []
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let payment_sources = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await
+            .unwrap();
+
+        assert_eq!(payment_sources, vec![]);
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await;
+
+        // Expect an error
+        assert!(matches!(res, Err(Error::ApiError(e)) if e.status == 404));
     }
 }

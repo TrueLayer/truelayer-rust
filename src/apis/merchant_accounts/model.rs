@@ -33,3 +33,8 @@ pub struct SweepingSettings {
     pub frequency: SweepingFrequency,
     pub destination: AccountIdentifier,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct ListPaymentSourcesRequest {
+    pub user_id: String,
+}
