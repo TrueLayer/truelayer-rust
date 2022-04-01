@@ -1,10 +1,15 @@
 use crate::{
-    apis::{merchant_accounts::MerchantAccount, TrueLayerClientInner},
+    apis::{
+        merchant_accounts::{MerchantAccount, SetupSweepingRequest, SweepingSettings},
+        TrueLayerClientInner,
+    },
+    common::IDEMPOTENCY_KEY_HEADER,
     Error,
 };
 use serde::Deserialize;
 use std::sync::Arc;
 use urlencoding::encode;
+use uuid::Uuid;
 
 /// TrueLayer Merchant Accounts APIs client.
 #[derive(Clone, Debug)]
@@ -42,7 +47,10 @@ impl MerchantAccountsApi {
     ///
     /// If there's no merchant account with the given id, `None` is returned.
     #[tracing::instrument(name = "Get Merchant Account by ID", skip(self))]
-    pub async fn get_by_id(&self, id: &str) -> Result<Option<MerchantAccount>, Error> {
+    pub async fn get_by_id(
+        &self,
+        merchant_account_id: &str,
+    ) -> Result<Option<MerchantAccount>, Error> {
         let res = self
             .inner
             .client
@@ -50,7 +58,10 @@ impl MerchantAccountsApi {
                 self.inner
                     .environment
                     .payments_url()
-                    .join(&format!("/merchant-accounts/{}", encode(id)))
+                    .join(&format!(
+                        "/merchant-accounts/{}",
+                        encode(merchant_account_id)
+                    ))
                     .unwrap(),
             )
             .send()
@@ -66,6 +77,107 @@ impl MerchantAccountsApi {
 
         Ok(merchant_account)
     }
+
+    /// Set the automatic sweeping settings for a merchant account.
+    /// At regular intervals, any available balance in excess of the configured
+    /// `max_amount_in_minor` is withdrawn to a pre-configured IBAN.
+    #[tracing::instrument(
+        name = "Setup Merchant Account Sweeping",
+        skip(self, merchant_account_id, request),
+        fields(
+            merchant_account_id = %merchant_account_id,
+            amount_in_minor = %request.max_amount_in_minor,
+            currency = %request.currency
+        )
+    )]
+    pub async fn setup_sweeping(
+        &self,
+        merchant_account_id: &str,
+        request: &SetupSweepingRequest,
+    ) -> Result<(), Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        self.inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/sweeping",
+                        merchant_account_id
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(request)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    /// Disable automatic sweeping for a merchant account.
+    #[tracing::instrument(name = "Disable Merchant Account Sweeping", skip(self))]
+    pub async fn disable_sweeping(&self, merchant_account_id: &str) -> Result<(), Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        self.inner
+            .client
+            .delete(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/sweeping",
+                        merchant_account_id
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    /// Gets the currently active automatic sweeping configuration of a merchant account.
+    ///
+    /// If there's no merchant account with the given id, or if it has not enabled sweeping,
+    /// `None` is returned.
+    #[tracing::instrument(name = "Get Merchant Account Sweeping Settings", skip(self))]
+    pub async fn get_sweeping_settings(
+        &self,
+        merchant_account_id: &str,
+    ) -> Result<Option<SweepingSettings>, Error> {
+        let res = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/sweeping",
+                        encode(merchant_account_id)
+                    ))
+                    .unwrap(),
+            )
+            .send()
+            .await
+            .map_err(Error::from);
+
+        // Return `None` if the server returned 404
+        let settings = match res {
+            Ok(body) => Some(body.json().await?),
+            Err(Error::ApiError(api_error)) if api_error.status == 404 => None,
+            Err(e) => return Err(e),
+        };
+
+        Ok(settings)
+    }
 }
 
 #[derive(Deserialize)]
@@ -79,6 +191,7 @@ mod tests {
     use crate::{
         apis::{
             auth::Credentials,
+            merchant_accounts::SweepingFrequency,
             payments::{AccountIdentifier, Currency},
         },
         authenticator::Authenticator,
@@ -88,7 +201,7 @@ mod tests {
     use reqwest::Url;
     use serde_json::json;
     use wiremock::{
-        matchers::{method, path},
+        matchers::{body_partial_json, method, path},
         Mock, MockServer, ResponseTemplate,
     };
 
@@ -239,5 +352,170 @@ mod tests {
         let merchant_account = api.get_by_id("merchant-account-id").await.unwrap();
 
         assert_eq!(merchant_account, None);
+    }
+
+    #[tokio::test]
+    async fn setup_sweeping() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .and(body_partial_json(json!({
+                "max_amount_in_minor": 100,
+                "currency": "GBP",
+                "frequency": "daily"
+            })))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        api.setup_sweeping(
+            &merchant_account_id,
+            &SetupSweepingRequest {
+                max_amount_in_minor: 100,
+                currency: Currency::Gbp,
+                frequency: SweepingFrequency::Daily,
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn setup_sweeping_account_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .setup_sweeping(
+                &merchant_account_id,
+                &SetupSweepingRequest {
+                    max_amount_in_minor: 100,
+                    currency: Currency::Gbp,
+                    frequency: SweepingFrequency::Daily,
+                },
+            )
+            .await;
+
+        // Expect an error
+        assert!(matches!(res, Err(Error::ApiError(e)) if e.status == 404));
+    }
+
+    #[tokio::test]
+    async fn disable_sweeping() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("DELETE"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        api.disable_sweeping(&merchant_account_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn disable_sweeping_account_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("DELETE"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api.disable_sweeping(&merchant_account_id).await;
+
+        // Expect an error
+        assert!(matches!(res, Err(Error::ApiError(e)) if e.status == 404));
+    }
+
+    #[tokio::test]
+    async fn get_sweeping_settings() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "max_amount_in_minor": 100,
+                "currency": "GBP",
+                "frequency": "weekly",
+                "destination": {
+                    "type": "iban",
+                    "iban": "some-iban"
+                }
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let settings = api
+            .get_sweeping_settings(&merchant_account_id)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            settings,
+            Some(SweepingSettings {
+                max_amount_in_minor: 100,
+                currency: Currency::Gbp,
+                frequency: SweepingFrequency::Weekly,
+                destination: AccountIdentifier::Iban {
+                    iban: "some-iban".into()
+                }
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn get_sweeping_settings_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/sweeping",
+                merchant_account_id
+            )))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let sweeping_settings = api
+            .get_sweeping_settings(&merchant_account_id)
+            .await
+            .unwrap();
+
+        assert_eq!(sweeping_settings, None);
     }
 }

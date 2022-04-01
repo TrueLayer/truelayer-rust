@@ -23,3 +23,4 @@ In the latter case, the following environment variables must be defined
 - `ACCEPTANCE_TESTS_SIGNING_KEY_ID`: ID of the key registered for request signing.
 - `ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY`: Private Key (PEM formatted) of the public key uploaded on the console.
 - `ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_ID`: ID of your merchant account that will receive GBP funds during the tests.
+- `ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_SWEEPING_IBAN`: Pre-approved IBAN for sweeping tests of your merchant account.

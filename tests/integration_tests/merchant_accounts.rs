@@ -1,5 +1,9 @@
 use crate::common::test_context::TestContext;
-use truelayer_rust::apis::payments::Currency;
+use rand::Rng;
+use truelayer_rust::apis::{
+    merchant_accounts::{SetupSweepingRequest, SweepingFrequency, SweepingSettings},
+    payments::{AccountIdentifier, Currency},
+};
 
 #[tokio::test]
 async fn list_merchant_accounts() {
@@ -49,4 +53,62 @@ async fn get_by_id_not_found() {
         .unwrap();
 
     assert_eq!(merchant_account, None);
+}
+
+#[tokio::test]
+async fn sweeping() {
+    let ctx = TestContext::start().await;
+
+    // Choose a random large amount (so that it doesn't trigger by mistake in sandbox)
+    #[allow(clippy::inconsistent_digit_grouping)]
+    let max_amount_in_minor = 10_000_000_00 + rand::thread_rng().gen_range(0..999_999_99);
+
+    // Setup sweeping
+    ctx.client
+        .merchant_accounts
+        .setup_sweeping(
+            &ctx.merchant_account_gbp_id,
+            &SetupSweepingRequest {
+                max_amount_in_minor,
+                currency: Currency::Gbp,
+                frequency: SweepingFrequency::Fortnightly,
+            },
+        )
+        .await
+        .unwrap();
+
+    // Retrieve the settings
+    let settings = ctx
+        .client
+        .merchant_accounts
+        .get_sweeping_settings(&ctx.merchant_account_gbp_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        settings,
+        Some(SweepingSettings {
+            max_amount_in_minor,
+            currency: Currency::Gbp,
+            frequency: SweepingFrequency::Fortnightly,
+            destination: AccountIdentifier::Iban {
+                iban: ctx.merchant_account_gbp_sweeping_iban
+            }
+        })
+    );
+
+    // Disable sweeping
+    ctx.client
+        .merchant_accounts
+        .disable_sweeping(&ctx.merchant_account_gbp_id)
+        .await
+        .unwrap();
+
+    // Retrieve the settings again
+    let settings = ctx
+        .client
+        .merchant_accounts
+        .get_sweeping_settings(&ctx.merchant_account_gbp_id)
+        .await
+        .unwrap();
+    assert_eq!(settings, None);
 }

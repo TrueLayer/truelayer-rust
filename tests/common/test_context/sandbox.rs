@@ -6,6 +6,7 @@ use url::Url;
 pub struct TestContext {
     pub client: TrueLayerClient,
     pub merchant_account_gbp_id: String,
+    pub merchant_account_gbp_sweeping_iban: String,
 }
 
 impl TestContext {
@@ -17,6 +18,8 @@ impl TestContext {
         let signing_private_key = std::env::var("ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY").unwrap();
         let merchant_account_gbp_id =
             std::env::var("ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_ID").unwrap();
+        let merchant_account_gbp_sweeping_iban =
+            std::env::var("ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_SWEEPING_IBAN").unwrap();
 
         // Configure a new TrueLayerClient to point to Sandbox
         let client = TrueLayerClient::builder(Credentials::ClientCredentials {
@@ -31,6 +34,7 @@ impl TestContext {
         Self {
             client,
             merchant_account_gbp_id,
+            merchant_account_gbp_sweeping_iban,
         }
     }
 
