@@ -6,12 +6,15 @@ use chrono::Utc;
 use serde_json::json;
 use truelayer_rust::apis::{
     auth::Credentials,
-    merchant_accounts::{SetupSweepingRequest, SweepingSettings},
+    merchant_accounts::{
+        ListPaymentSourcesRequest, SetupSweepingRequest, SweepingSettings, Transaction,
+        TransactionPayinStatus, TransactionType,
+    },
     payments::{
         AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
-        CreatePaymentUserRequest, Payment, PaymentMethod, PaymentStatus, Provider,
-        ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
+        CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
+        Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
         SubmitProviderSelectionActionRequest, User,
     },
 };
@@ -307,5 +310,68 @@ pub(super) async fn disable_merchant_account_sweeping(
     match old {
         Some(_) => HttpResponse::Ok().finish(),
         None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// GET /merchant-accounts/{id}/transactions
+pub(super) async fn list_transactions(
+    configuration: web::Data<MockServerConfiguration>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    let merchant_account = configuration
+        .merchant_accounts
+        .values()
+        .find(|m| m.id == *id);
+
+    match merchant_account {
+        Some(_) => HttpResponse::Ok().json(json!({
+            "items": vec![Transaction {
+                id: "transaction-id-1".into(),
+                currency: Currency::Gbp,
+                amount_in_minor: 100,
+                r#type: TransactionType::MerchantAccountPayment {
+                    status: TransactionPayinStatus::Settled,
+                    settled_at: Utc::now(),
+                    payment_source: PaymentSource {
+                        id: "payment-source-id".into(),
+                        user_id: Some("payment-source-user-id".into()),
+                        account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                            sort_code: "sort-code".to_string(),
+                            account_number: "account-number".to_string(),
+                        }],
+                        account_holder_name: Some("Mr. Holder".into()),
+                    },
+                    payment_id: "payment-id".into(),
+                },
+            }]
+        })),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// GET /merchant-accounts/{id}/payment-sources
+pub(super) async fn list_payment_sources(
+    configuration: web::Data<MockServerConfiguration>,
+    id: web::Path<String>,
+    query: web::Query<ListPaymentSourcesRequest>,
+) -> HttpResponse {
+    let merchant_account = configuration
+        .merchant_accounts
+        .values()
+        .find(|m| m.id == *id);
+
+    match (merchant_account, &*query.user_id) {
+        (Some(_), "payment-source-user-id") => HttpResponse::Ok().json(json!({
+            "items": vec![PaymentSource {
+                id: "payment-source-id".into(),
+                user_id: Some("payment-source-user-id".into()),
+                account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                    sort_code: "sort-code".to_string(),
+                    account_number: "account-number".to_string(),
+                }],
+                account_holder_name: Some("Mr. Holder".into()),
+            }]
+        })),
+        _ => HttpResponse::NotFound().finish(),
     }
 }

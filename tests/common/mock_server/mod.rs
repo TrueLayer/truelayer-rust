@@ -169,6 +169,14 @@ impl TrueLayerMockServer {
                         .route(web::post().to(routes::setup_merchant_account_sweeping))
                         .route(web::delete().to(routes::disable_merchant_account_sweeping)),
                 )
+                .service(
+                    web::resource("/merchant-accounts/{id}/transactions")
+                        .route(web::get().to(routes::list_transactions)),
+                )
+                .service(
+                    web::resource("/merchant-accounts/{id}/payment-sources")
+                        .route(web::get().to(routes::list_payment_sources)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")

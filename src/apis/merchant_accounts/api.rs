@@ -1,6 +1,10 @@
 use crate::{
     apis::{
-        merchant_accounts::{MerchantAccount, SetupSweepingRequest, SweepingSettings},
+        merchant_accounts::{
+            ListPaymentSourcesRequest, ListTransactionsRequest, MerchantAccount,
+            SetupSweepingRequest, SweepingSettings, Transaction,
+        },
+        payments::PaymentSource,
         TrueLayerClientInner,
     },
     common::IDEMPOTENCY_KEY_HEADER,
@@ -178,6 +182,70 @@ impl MerchantAccountsApi {
 
         Ok(settings)
     }
+
+    /// Gets the transactions of a single merchant account.
+    #[tracing::instrument(name = "List Transactions", skip(self, request))]
+    pub async fn list_transactions(
+        &self,
+        merchant_account_id: &str,
+        request: &ListTransactionsRequest,
+    ) -> Result<Vec<Transaction>, Error> {
+        let res: ListResponse<_> = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/transactions",
+                        merchant_account_id
+                    ))
+                    .unwrap(),
+            )
+            .query(request)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res.items)
+    }
+
+    /// Gets the payment sources from which the merchant account has received payment.
+    #[tracing::instrument(
+        name = "List Payment Sources",
+        skip(self, request),
+        fields(
+            user_id = %request.user_id
+        )
+    )]
+    pub async fn list_payment_sources(
+        &self,
+        merchant_account_id: &str,
+        request: &ListPaymentSourcesRequest,
+    ) -> Result<Vec<PaymentSource>, Error> {
+        let res: ListResponse<_> = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/merchant-accounts/{}/payment-sources",
+                        merchant_account_id
+                    ))
+                    .unwrap(),
+            )
+            .query(request)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res.items)
+    }
 }
 
 #[derive(Deserialize)]
@@ -191,17 +259,21 @@ mod tests {
     use crate::{
         apis::{
             auth::Credentials,
-            merchant_accounts::SweepingFrequency,
-            payments::{AccountIdentifier, Currency},
+            merchant_accounts::{
+                PayoutBeneficiary, SweepingFrequency, TransactionPayinStatus,
+                TransactionPayoutContextCode, TransactionPayoutStatus, TransactionType,
+            },
+            payments::{AccountIdentifier, Currency, Remitter},
         },
         authenticator::Authenticator,
         client::Environment,
         middlewares::error_handling::ErrorHandlingMiddleware,
     };
+    use chrono::{SecondsFormat, Utc};
     use reqwest::Url;
     use serde_json::json;
     use wiremock::{
-        matchers::{body_partial_json, method, path},
+        matchers::{body_partial_json, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
 
@@ -517,5 +589,365 @@ mod tests {
             .unwrap();
 
         assert_eq!(sweeping_settings, None);
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": [
+                    {
+                        "id": "payment-source-id",
+                        "user_id": "payment-source-user-id",
+                        "account_identifiers": [
+                            {
+                                "type": "sort_code_account_number",
+                                "sort_code": "sort-code",
+                                "account_number": "account-number"
+                            }
+                        ],
+                        "account_holder_name": "Mr. Holder"
+                    }
+                ]
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let payment_sources = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            payment_sources,
+            vec![PaymentSource {
+                id: "payment-source-id".to_string(),
+                user_id: Some("payment-source-user-id".to_string()),
+                account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                    sort_code: "sort-code".to_string(),
+                    account_number: "account-number".to_string()
+                }],
+                account_holder_name: Some("Mr. Holder".to_string())
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources_empty() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": []
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let payment_sources = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await
+            .unwrap();
+
+        assert_eq!(payment_sources, vec![]);
+    }
+
+    #[tokio::test]
+    async fn list_payment_sources_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let user_id = "user-id".to_string();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/payment-sources",
+                merchant_account_id
+            )))
+            .and(query_param("user_id", &user_id))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .list_payment_sources(&merchant_account_id, &ListPaymentSourcesRequest { user_id })
+            .await;
+
+        // Expect an error
+        assert!(matches!(res, Err(Error::ApiError(e)) if e.status == 404));
+    }
+
+    #[tokio::test]
+    async fn list_transactions() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let now = Utc::now();
+        let now_str = now.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/transactions",
+                merchant_account_id
+            )))
+            .and(query_param("from", &now_str))
+            .and(query_param("to", &now_str))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": [
+                    {
+                        "id": "transaction-id-1",
+                        "currency": "GBP",
+                        "amount_in_minor": 100,
+                        "type": "merchant_account_payment",
+                        "status": "settled",
+                        "settled_at": &now,
+                        "payment_source": {
+                            "id": "payment-source-id",
+                            "account_identifiers": [
+                                {
+                                    "type": "sort_code_account_number",
+                                    "sort_code": "sort-code",
+                                    "account_number": "account-number"
+                                }
+                            ],
+                            "account_holder_name": "Mr. Holder"
+                        },
+                        "payment_id": "payment-id"
+                    },
+                    {
+                        "id": "transaction-id-2",
+                        "currency": "GBP",
+                        "amount_in_minor": 100,
+                        "type": "external_payment",
+                        "status": "settled",
+                        "settled_at": &now,
+                        "remitter": {
+                            "account_identifier": {
+                                "type": "sort_code_account_number",
+                                "sort_code": "sort-code",
+                                "account_number": "account-number"
+                            },
+                            "account_holder_name": "Mr. Holder"
+                        }
+                    },
+                    {
+                        "id": "transaction-id-3",
+                        "currency": "GBP",
+                        "amount_in_minor": 100,
+                        "type": "payout",
+                        "status": "pending",
+                        "created_at": &now,
+                        "beneficiary": {
+                            "type": "external_account",
+                            "account_identifier": {
+                                "type": "sort_code_account_number",
+                                "sort_code": "sort-code",
+                                "account_number": "account-number"
+                            },
+                            "account_holder_name": "Mr. Holder",
+                            "reference": "payout-reference"
+                        },
+                        "context_code": "withdrawal",
+                        "payout_id": "payout-id-3"
+                    },
+                    {
+                        "id": "transaction-id-4",
+                        "currency": "GBP",
+                        "amount_in_minor": 100,
+                        "type": "payout",
+                        "status": "settled",
+                        "created_at": &now,
+                        "settled_at": &now,
+                        "beneficiary": {
+                            "type": "payment_source",
+                            "user_id": "payout-user-id",
+                            "external_account_id": "external-account-id",
+                            "reference": "payout-reference"
+                        },
+                        "context_code": "internal",
+                        "payout_id": "payout-id-4"
+                    }
+                ]
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let transactions = api
+            .list_transactions(
+                &merchant_account_id,
+                &ListTransactionsRequest {
+                    from: now,
+                    to: now,
+                    r#type: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            transactions,
+            vec![
+                Transaction {
+                    id: "transaction-id-1".into(),
+                    currency: Currency::Gbp,
+                    amount_in_minor: 100,
+                    r#type: TransactionType::MerchantAccountPayment {
+                        status: TransactionPayinStatus::Settled,
+                        settled_at: now,
+                        payment_source: PaymentSource {
+                            id: "payment-source-id".into(),
+                            user_id: None,
+                            account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
+                                sort_code: "sort-code".to_string(),
+                                account_number: "account-number".to_string()
+                            }],
+                            account_holder_name: Some("Mr. Holder".into())
+                        },
+                        payment_id: "payment-id".into()
+                    }
+                },
+                Transaction {
+                    id: "transaction-id-2".into(),
+                    currency: Currency::Gbp,
+                    amount_in_minor: 100,
+                    r#type: TransactionType::ExternalPayment {
+                        status: TransactionPayinStatus::Settled,
+                        settled_at: now,
+                        remitter: Remitter {
+                            account_holder_name: Some("Mr. Holder".into()),
+                            account_identifier: Some(AccountIdentifier::SortCodeAccountNumber {
+                                sort_code: "sort-code".to_string(),
+                                account_number: "account-number".to_string()
+                            })
+                        }
+                    }
+                },
+                Transaction {
+                    id: "transaction-id-3".into(),
+                    currency: Currency::Gbp,
+                    amount_in_minor: 100,
+                    r#type: TransactionType::Payout {
+                        status: TransactionPayoutStatus::Pending,
+                        created_at: now,
+                        beneficiary: PayoutBeneficiary::ExternalAccount {
+                            account_holder_name: "Mr. Holder".into(),
+                            account_identifier: AccountIdentifier::SortCodeAccountNumber {
+                                sort_code: "sort-code".to_string(),
+                                account_number: "account-number".to_string()
+                            },
+                            reference: "payout-reference".to_string()
+                        },
+                        context_code: TransactionPayoutContextCode::Withdrawal,
+                        payout_id: "payout-id-3".into()
+                    }
+                },
+                Transaction {
+                    id: "transaction-id-4".into(),
+                    currency: Currency::Gbp,
+                    amount_in_minor: 100,
+                    r#type: TransactionType::Payout {
+                        status: TransactionPayoutStatus::Settled { settled_at: now },
+                        created_at: now,
+                        beneficiary: PayoutBeneficiary::PaymentSource {
+                            user_id: "payout-user-id".to_string(),
+                            external_account_id: "external-account-id".to_string(),
+                            reference: "payout-reference".to_string()
+                        },
+                        context_code: TransactionPayoutContextCode::Internal,
+                        payout_id: "payout-id-4".into()
+                    }
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn list_transactions_empty() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let now = Utc::now();
+        let now_str = now.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/transactions",
+                merchant_account_id
+            )))
+            .and(query_param("from", &now_str))
+            .and(query_param("to", &now_str))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": []
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let transactions = api
+            .list_transactions(
+                &merchant_account_id,
+                &ListTransactionsRequest {
+                    from: now,
+                    to: now,
+                    r#type: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(transactions, vec![]);
+    }
+
+    #[tokio::test]
+    async fn list_transactions_not_found() {
+        let (api, mock_server) = mock_client_and_server().await;
+
+        let merchant_account_id = "merchant-account-id".to_string();
+        let now = Utc::now();
+        let now_str = now.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/merchant-accounts/{}/transactions",
+                merchant_account_id
+            )))
+            .and(query_param("from", &now_str))
+            .and(query_param("to", &now_str))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .list_transactions(
+                &merchant_account_id,
+                &ListTransactionsRequest {
+                    from: now,
+                    to: now,
+                    r#type: None,
+                },
+            )
+            .await;
+
+        // Expect an error
+        assert!(matches!(res, Err(Error::ApiError(e)) if e.status == 404));
     }
 }
