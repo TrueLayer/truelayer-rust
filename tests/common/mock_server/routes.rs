@@ -6,11 +6,13 @@ use chrono::Utc;
 use serde_json::json;
 use truelayer_rust::apis::{
     auth::Credentials,
+    merchant_accounts::{SetupSweepingRequest, SweepingSettings},
     payments::{
-        AuthorizationFlow, AuthorizationFlowActions, AuthorizationFlowNextAction,
-        AuthorizationFlowResponseStatus, CreatePaymentRequest, CreatePaymentUserRequest, Payment,
-        PaymentMethod, PaymentStatus, Provider, ProviderSelection, StartAuthorizationFlowRequest,
-        StartAuthorizationFlowResponse, SubmitProviderSelectionActionRequest, User,
+        AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
+        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
+        CreatePaymentUserRequest, Payment, PaymentMethod, PaymentStatus, Provider,
+        ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
+        SubmitProviderSelectionActionRequest, User,
     },
 };
 use uuid::Uuid;
@@ -61,7 +63,7 @@ pub(super) async fn create_payment(
         },
     };
 
-    storage.write().unwrap().insert(
+    storage.write().unwrap().payments.insert(
         id.clone(),
         Payment {
             id: id.clone(),
@@ -91,7 +93,7 @@ pub(super) async fn get_payment_by_id(
 ) -> HttpResponse {
     let id = path.into_inner();
 
-    storage.read().unwrap().get(&id).map_or_else(
+    storage.read().unwrap().payments.get(&id).map_or_else(
         || HttpResponse::NotFound().finish(),
         |payment| HttpResponse::Ok().json(payment),
     )
@@ -107,7 +109,7 @@ pub(super) async fn start_authorization_flow(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.get_mut(&id) {
+    let payment = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -185,7 +187,7 @@ pub(super) async fn submit_provider_selection(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.get_mut(&id) {
+    let payment = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -251,6 +253,59 @@ pub(super) async fn get_merchant_account_by_id(
 
     match merchant_account {
         Some(m) => HttpResponse::Ok().json(m),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// GET /merchant-accounts/{id}/sweeping
+pub(super) async fn get_merchant_account_sweeping_by_id(
+    storage: web::Data<MockServerStorage>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    let sweeping_settings = storage.read().unwrap().sweeping.get(&*id).cloned();
+
+    match sweeping_settings {
+        Some(settings) => HttpResponse::Ok().json(settings),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// POST /merchant-accounts/{id}/sweeping
+pub(super) async fn setup_merchant_account_sweeping(
+    configuration: web::Data<MockServerConfiguration>,
+    storage: web::Data<MockServerStorage>,
+    id: web::Path<String>,
+    request: web::Json<SetupSweepingRequest>,
+) -> HttpResponse {
+    let iban = configuration.sweeping_approved_ibans.get(&*id).cloned();
+
+    match iban {
+        Some(iban) => {
+            let request = request.into_inner();
+            storage.write().unwrap().sweeping.insert(
+                id.clone(),
+                SweepingSettings {
+                    max_amount_in_minor: request.max_amount_in_minor,
+                    currency: request.currency,
+                    frequency: request.frequency,
+                    destination: AccountIdentifier::Iban { iban },
+                },
+            );
+            HttpResponse::Ok().finish()
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// DELETE /merchant-accounts/{id}/sweeping
+pub(super) async fn disable_merchant_account_sweeping(
+    storage: web::Data<MockServerStorage>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    let old = storage.write().unwrap().sweeping.remove(&*id);
+
+    match old {
+        Some(_) => HttpResponse::Ok().finish(),
         None => HttpResponse::NotFound().finish(),
     }
 }

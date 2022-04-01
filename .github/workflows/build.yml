@@ -43,4 +43,5 @@ jobs:
           ACCEPTANCE_TESTS_SIGNING_KEY_ID: ${{ secrets.ACCEPTANCE_TESTS_SIGNING_KEY_ID }}
           ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY: ${{ secrets.ACCEPTANCE_TESTS_SIGNING_PRIVATE_KEY }}
           ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_ID: ${{ secrets.ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_ID }}
+          ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_SWEEPING_IBAN: ${{ secrets.ACCEPTANCE_TESTS_MERCHANT_ACCOUNT_GBP_SWEEPING_IBAN }}
         run: cargo nextest run --color always --all-targets --workspace --features acceptance-tests 'integration_tests::'

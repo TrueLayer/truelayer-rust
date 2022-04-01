@@ -14,6 +14,7 @@ use uuid::Uuid;
 pub struct TestContext {
     pub client: TrueLayerClient,
     pub merchant_account_gbp_id: String,
+    pub merchant_account_gbp_sweeping_iban: String,
     mock_server: TrueLayerMockServer,
 }
 
@@ -49,12 +50,17 @@ impl TestContext {
         .with_environment(Environment::from_single_url(mock_server.url()))
         .build();
 
+        let merchant_account_gbp_id = mock_server
+            .merchant_account(Currency::Gbp)
+            .map(|m| m.id.clone())
+            .unwrap();
+
         Self {
             client,
-            merchant_account_gbp_id: mock_server
-                .merchant_account(Currency::Gbp)
-                .map(|m| m.id.clone())
+            merchant_account_gbp_sweeping_iban: mock_server
+                .sweeping_iban(&merchant_account_gbp_id)
                 .unwrap(),
+            merchant_account_gbp_id,
             mock_server,
         }
     }

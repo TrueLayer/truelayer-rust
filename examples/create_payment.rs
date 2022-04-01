@@ -62,6 +62,14 @@ async fn run() -> anyhow::Result<()> {
         .find(|m| m.currency == Currency::Gbp)
         .context("Cannot find a GBP merchant account")?;
 
+    // Show the current sweeping settings, if any
+    let sweeping_settings = tl
+        .merchant_accounts
+        .get_sweeping_settings(&merchant_account.id)
+        .await
+        .context("Failed to retrieve sweeping settings")?;
+    tracing::info!("GBP Account sweeping settings: {:?}", sweeping_settings);
+
     // Create a new outgoing payment
     let res = tl
         .payments

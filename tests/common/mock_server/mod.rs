@@ -12,7 +12,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 use truelayer_rust::apis::{
-    merchant_accounts::MerchantAccount,
+    merchant_accounts::{MerchantAccount, SweepingSettings},
     payments::{
         AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, Currency, FailureStage, Payment, PaymentStatus,
@@ -31,10 +31,17 @@ struct MockServerConfiguration {
     signing_public_key: Vec<u8>,
     access_token: String,
     merchant_accounts: HashMap<Currency, MerchantAccount>,
+    sweeping_approved_ibans: HashMap<String, String>,
+}
+
+#[derive(Clone, Default)]
+struct MockServerStorageInner {
+    payments: HashMap<String, Payment>,
+    sweeping: HashMap<String, SweepingSettings>,
 }
 
 /// In-memory storage for payments created on the mock server.
-type MockServerStorage = Arc<RwLock<HashMap<String, Payment>>>;
+type MockServerStorage = Arc<RwLock<MockServerStorageInner>>;
 
 /// Simple mock server for TrueLayer APIs used in local integration tests.
 pub struct TrueLayerMockServer {
@@ -51,6 +58,8 @@ impl TrueLayerMockServer {
         signing_key_id: &str,
         signing_public_key: Vec<u8>,
     ) -> Self {
+        // Prepare the mock server configuration
+        let merchant_account_gbp_id = Uuid::new_v4().to_string();
         let configuration = MockServerConfiguration {
             client_id: client_id.to_string(),
             client_secret: client_secret.to_string(),
@@ -61,7 +70,7 @@ impl TrueLayerMockServer {
                 (
                     Currency::Gbp,
                     MerchantAccount {
-                        id: Uuid::new_v4().to_string(),
+                        id: merchant_account_gbp_id.clone(),
                         currency: Currency::Gbp,
                         account_identifiers: vec![AccountIdentifier::SortCodeAccountNumber {
                             sort_code: "123456".to_string(),
@@ -78,13 +87,19 @@ impl TrueLayerMockServer {
                         id: Uuid::new_v4().to_string(),
                         currency: Currency::Eur,
                         account_identifiers: vec![AccountIdentifier::Iban {
-                            iban: "GB68BARC20038085742745".to_string(),
+                            iban: "some-eu-iban".to_string(),
                         }],
                         available_balance_in_minor: 100,
                         current_balance_in_minor: 200,
                         account_holder_name: "Mr. Holder".to_string(),
                     },
                 ),
+            ]
+            .into_iter()
+            .collect(),
+            sweeping_approved_ibans: [
+                // Random IBANs
+                (merchant_account_gbp_id, "some-uk-iban".into()),
             ]
             .into_iter()
             .collect(),
@@ -143,6 +158,17 @@ impl TrueLayerMockServer {
                     web::resource("/merchant-accounts/{id}")
                         .route(web::get().to(routes::get_merchant_account_by_id)),
                 )
+                .service(
+                    web::resource("/merchant-accounts/{id}/sweeping")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::get().to(routes::get_merchant_account_sweeping_by_id))
+                        .route(web::post().to(routes::setup_merchant_account_sweeping))
+                        .route(web::delete().to(routes::disable_merchant_account_sweeping)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")
@@ -179,6 +205,13 @@ impl TrueLayerMockServer {
         self.configuration.merchant_accounts.get(&currency)
     }
 
+    pub fn sweeping_iban(&self, merchant_account_id: &str) -> Option<String> {
+        self.configuration
+            .sweeping_approved_ibans
+            .get(merchant_account_id)
+            .cloned()
+    }
+
     pub async fn complete_mock_bank_redirect_authorization(
         &self,
         redirect_uri: &Url,
@@ -190,8 +223,11 @@ impl TrueLayerMockServer {
             .and_then(|mut it| it.next())
             .context("Missing payment id")?;
 
-        let mut map = self.storage.write().unwrap();
-        let payment = map.get_mut(payment_id).context("Payment not found")?;
+        let mut storage = self.storage.write().unwrap();
+        let payment = storage
+            .payments
+            .get_mut(payment_id)
+            .context("Payment not found")?;
 
         // Ensure the payment was in Authorizing state waiting for the redirect to complete
         let auth_flow_configuration = match payment.status {
