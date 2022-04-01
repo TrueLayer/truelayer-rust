@@ -150,6 +150,7 @@ pub enum FailureStage {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct PaymentSource {
     pub id: String,
+    pub user_id: Option<String>,
     #[serde(default)]
     pub account_identifiers: Vec<AccountIdentifier>,
     pub account_holder_name: Option<String>,

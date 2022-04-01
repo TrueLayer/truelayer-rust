@@ -1,7 +1,11 @@
 use crate::common::test_context::TestContext;
+use chrono::{DateTime, Utc};
 use rand::Rng;
 use truelayer_rust::apis::{
-    merchant_accounts::{SetupSweepingRequest, SweepingFrequency, SweepingSettings},
+    merchant_accounts::{
+        ListPaymentSourcesRequest, ListTransactionsRequest, SetupSweepingRequest,
+        SweepingFrequency, SweepingSettings, TransactionType,
+    },
     payments::{AccountIdentifier, Currency},
 };
 
@@ -111,4 +115,76 @@ async fn sweeping() {
         .await
         .unwrap();
     assert_eq!(settings, None);
+}
+
+#[tokio::test]
+async fn list_transactions() {
+    let ctx = TestContext::start().await;
+
+    // List the transactions of the account
+    let transactions = ctx
+        .client
+        .merchant_accounts
+        .list_transactions(
+            &ctx.merchant_account_gbp_id,
+            &ListTransactionsRequest {
+                from: DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                to: DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                r#type: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert!(!transactions.is_empty());
+}
+
+#[tokio::test]
+async fn list_payment_sources() {
+    let ctx = TestContext::start().await;
+
+    // Find an inbound transaction and extract its payment source
+    let payment_source = ctx
+        .client
+        .merchant_accounts
+        .list_transactions(
+            &ctx.merchant_account_gbp_id,
+            &ListTransactionsRequest {
+                from: DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                to: DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                r#type: None,
+            },
+        )
+        .await
+        .unwrap()
+        .into_iter()
+        .filter_map(|t| match t.r#type {
+            TransactionType::MerchantAccountPayment { payment_source, .. } => Some(payment_source),
+            _ => None,
+        })
+        .next()
+        .unwrap();
+
+    // Fetch all the payment sources for the given user id
+    let payment_sources = ctx
+        .client
+        .merchant_accounts
+        .list_payment_sources(
+            &ctx.merchant_account_gbp_id,
+            &ListPaymentSourcesRequest {
+                user_id: payment_source.user_id.unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert!(!payment_sources.is_empty());
 }

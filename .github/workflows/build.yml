@@ -36,7 +36,7 @@ jobs:
           cargo nextest run --color always --all-targets --workspace
           cargo test --doc
       - name: Acceptance tests in Sandbox environment
-        if: ${{ github.ref == 'refs/heads/main' }}
+        # if: ${{ github.ref == 'refs/heads/main' }}
         env:
           ACCEPTANCE_TESTS_CLIENT_ID: ${{ secrets.ACCEPTANCE_TESTS_CLIENT_ID }}
           ACCEPTANCE_TESTS_CLIENT_SECRET: ${{ secrets.ACCEPTANCE_TESTS_CLIENT_SECRET }}
