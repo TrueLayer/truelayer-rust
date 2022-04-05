@@ -17,6 +17,7 @@ use truelayer_rust::apis::{
         Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
         SubmitProviderSelectionActionRequest, User,
     },
+    payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
 use uuid::Uuid;
 
@@ -374,4 +375,46 @@ pub(super) async fn list_payment_sources(
         })),
         _ => HttpResponse::NotFound().finish(),
     }
+}
+
+/// POST /payouts
+pub(super) async fn create_payout(
+    configuration: web::Data<MockServerConfiguration>,
+    storage: web::Data<MockServerStorage>,
+    request: web::Json<CreatePayoutRequest>,
+) -> HttpResponse {
+    if !configuration
+        .merchant_accounts
+        .values()
+        .any(|m| m.id == request.merchant_account_id)
+    {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let payout_id = Uuid::new_v4().to_string();
+    storage.write().unwrap().payouts.insert(
+        payout_id.clone(),
+        Payout {
+            id: payout_id.clone(),
+            merchant_account_id: request.merchant_account_id.clone(),
+            amount_in_minor: request.amount_in_minor,
+            currency: request.currency.clone(),
+            beneficiary: request.beneficiary.clone(),
+            created_at: Utc::now(),
+            status: PayoutStatus::Pending,
+        },
+    );
+
+    HttpResponse::Created().json(json!({ "id": payout_id }))
+}
+
+/// GET /payouts/{id}
+pub(super) async fn get_payout_by_id(
+    storage: web::Data<MockServerStorage>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    storage.read().unwrap().payouts.get(&*id).map_or_else(
+        || HttpResponse::NotFound().finish(),
+        |payment| HttpResponse::Ok().json(payment),
+    )
 }
