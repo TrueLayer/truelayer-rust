@@ -1,4 +1,4 @@
-use crate::common::{test_context::TestContext, MockBankAction};
+use crate::common::{retry, test_context::TestContext, MockBankAction};
 use retry_policies::policies::ExponentialBackoff;
 use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
@@ -337,18 +337,22 @@ impl CreatePaymentScenario {
         // Test a closed loop payout for the payment we just created
         if self.make_closed_loop_payout {
             // Get the payment source for the user created by this payment
-            let payment_source = ctx
-                .client
-                .merchant_accounts
-                .list_payment_sources(
-                    &ctx.merchant_account_gbp_id,
-                    &ListPaymentSourcesRequest {
-                        user_id: res.user.id.clone(),
-                    },
-                )
-                .await
-                .unwrap()
-                .remove(0);
+            let payment_source = retry(Duration::from_secs(10), || async {
+                ctx.client
+                    .merchant_accounts
+                    .list_payment_sources(
+                        &ctx.merchant_account_gbp_id,
+                        &ListPaymentSourcesRequest {
+                            user_id: res.user.id.clone(),
+                        },
+                    )
+                    .await
+                    .unwrap()
+                    .first()
+                    .cloned()
+            })
+            .await
+            .expect("Payment source failed to appear");
 
             // Create a payout against this payment source
             let create_payout_response = ctx
