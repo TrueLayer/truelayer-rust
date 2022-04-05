@@ -55,12 +55,11 @@ async fn open_loop_payout() {
     assert_eq!(payout.merchant_account_id, ctx.merchant_account_gbp_id);
     assert_eq!(payout.amount_in_minor, 1);
     assert_eq!(payout.currency, Currency::Gbp);
-    assert_eq!(
+    assert!(matches!(
         payout.beneficiary,
         PayoutBeneficiary::ExternalAccount {
-            account_holder_name: merchant_account.account_holder_name.clone(),
-            account_identifier: account_identifier.clone(),
-            reference: "rust-sdk-test".to_string(),
-        }
-    );
+            reference,
+            ..
+        } if reference == "rust-sdk-test"
+    ));
 }
