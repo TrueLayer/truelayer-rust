@@ -54,7 +54,7 @@ pub(super) async fn create_payment(
     let id = Uuid::new_v4().to_string();
     let user = match create_payment_request.user.clone() {
         CreatePaymentUserRequest::NewUser { name, email, phone } => User {
-            id: Uuid::new_v4().to_string(),
+            id: "payment-source-user-id".to_string(),
             name,
             email,
             phone,
@@ -404,6 +404,15 @@ pub(super) async fn create_payout(
             status: PayoutStatus::Pending,
         },
     );
+
+    // Automatically make the payout executed after 1 second
+    let payout_id_clone = payout_id.clone();
+    tokio::spawn(async move {
+        let mut guard = storage.write().unwrap();
+        guard.payouts.get_mut(&payout_id_clone).unwrap().status = PayoutStatus::Executed {
+            executed_at: Utc::now(),
+        };
+    });
 
     HttpResponse::Created().json(json!({ "id": payout_id }))
 }
