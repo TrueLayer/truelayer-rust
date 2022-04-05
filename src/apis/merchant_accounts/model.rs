@@ -1,4 +1,7 @@
-use crate::apis::payments::{AccountIdentifier, Currency, PaymentSource, Remitter};
+use crate::apis::{
+    payments::{AccountIdentifier, Currency, PaymentSource, Remitter},
+    payouts::PayoutBeneficiary,
+};
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -108,21 +111,6 @@ pub enum TransactionPayoutContextCode {
     Withdrawal,
     ServicePayment,
     Internal,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum PayoutBeneficiary {
-    ExternalAccount {
-        account_holder_name: String,
-        account_identifier: AccountIdentifier,
-        reference: String,
-    },
-    PaymentSource {
-        user_id: String,
-        external_account_id: String,
-        reference: String,
-    },
 }
 
 fn serialize_timestamp<S>(timestamp: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>

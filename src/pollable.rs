@@ -136,6 +136,8 @@ mod private {
 
     impl Sealed for crate::apis::payments::Payment {}
     impl Sealed for crate::apis::payments::CreatePaymentResponse {}
+    impl Sealed for crate::apis::payouts::Payout {}
+    impl Sealed for crate::apis::payouts::CreatePayoutResponse {}
 
     #[cfg(test)]
     impl<F> Sealed for super::tests::PollableMock<F> {}

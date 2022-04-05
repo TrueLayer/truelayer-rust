@@ -84,14 +84,12 @@ impl Pollable for Payment {
 impl IsInTerminalState for Payment {
     /// A payment is considered to be in a terminal state if it is `Executed`, `Settled` or `Failed`.
     fn is_in_terminal_state(&self) -> bool {
-        match self.status {
-            PaymentStatus::AuthorizationRequired { .. }
-            | PaymentStatus::Authorizing { .. }
-            | PaymentStatus::Authorized { .. } => false,
+        matches!(
+            self.status,
             PaymentStatus::Executed { .. }
-            | PaymentStatus::Settled { .. }
-            | PaymentStatus::Failed { .. } => true,
-        }
+                | PaymentStatus::Settled { .. }
+                | PaymentStatus::Failed { .. }
+        )
     }
 }
 
