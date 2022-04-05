@@ -1,6 +1,6 @@
 use crate::common::test_context::TestContext;
 use truelayer_rust::apis::{
-    payments::Currency,
+    payments::{AccountIdentifier, Currency},
     payouts::{CreatePayoutRequest, PayoutBeneficiary},
 };
 
@@ -9,15 +9,20 @@ async fn open_loop_payout() {
     let ctx = TestContext::start().await;
 
     // Get merchant account's first identifier
-    let account_identifier = ctx
+    let merchant_account = ctx
         .client
         .merchant_accounts
         .get_by_id(&ctx.merchant_account_gbp_id)
         .await
         .unwrap()
-        .unwrap()
+        .unwrap();
+
+    // Use the IBAN identifier if the account has one because the GW currently supports only IBANs for payouts
+    let account_identifier = merchant_account
         .account_identifiers
-        .remove(0);
+        .iter()
+        .find(|id| matches!(id, AccountIdentifier::Iban { .. }))
+        .unwrap_or_else(|| merchant_account.account_identifiers.first().unwrap());
 
     // Create a new payout
     let res = ctx
@@ -28,7 +33,7 @@ async fn open_loop_payout() {
             amount_in_minor: 1,
             currency: Currency::Gbp,
             beneficiary: PayoutBeneficiary::ExternalAccount {
-                account_holder_name: "".to_string(),
+                account_holder_name: merchant_account.account_holder_name.clone(),
                 account_identifier: account_identifier.clone(),
                 reference: "rust-sdk-test".to_string(),
             },
@@ -53,8 +58,8 @@ async fn open_loop_payout() {
     assert_eq!(
         payout.beneficiary,
         PayoutBeneficiary::ExternalAccount {
-            account_holder_name: "".to_string(),
-            account_identifier,
+            account_holder_name: merchant_account.account_holder_name.clone(),
+            account_identifier: account_identifier.clone(),
             reference: "rust-sdk-test".to_string(),
         }
     );
