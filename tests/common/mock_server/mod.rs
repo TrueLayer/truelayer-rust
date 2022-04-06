@@ -17,6 +17,7 @@ use truelayer_rust::apis::{
         AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, Currency, FailureStage, Payment, PaymentStatus,
     },
+    payouts::Payout,
 };
 use uuid::Uuid;
 
@@ -37,6 +38,7 @@ struct MockServerConfiguration {
 #[derive(Clone, Default)]
 struct MockServerStorageInner {
     payments: HashMap<String, Payment>,
+    payouts: HashMap<String, Payout>,
     sweeping: HashMap<String, SweepingSettings>,
 }
 
@@ -176,6 +178,10 @@ impl TrueLayerMockServer {
                 .service(
                     web::resource("/merchant-accounts/{id}/payment-sources")
                         .route(web::get().to(routes::list_payment_sources)),
+                )
+                .service(web::resource("/payouts").route(web::post().to(routes::create_payout)))
+                .service(
+                    web::resource("/payouts/{id}").route(web::get().to(routes::get_payout_by_id)),
                 )
         })
         .workers(1)

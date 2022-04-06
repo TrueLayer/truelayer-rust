@@ -260,10 +260,11 @@ mod tests {
         apis::{
             auth::Credentials,
             merchant_accounts::{
-                PayoutBeneficiary, SweepingFrequency, TransactionPayinStatus,
-                TransactionPayoutContextCode, TransactionPayoutStatus, TransactionType,
+                SweepingFrequency, TransactionPayinStatus, TransactionPayoutContextCode,
+                TransactionPayoutStatus, TransactionType,
             },
             payments::{AccountIdentifier, Currency, Remitter},
+            payouts::PayoutBeneficiary,
         },
         authenticator::Authenticator,
         client::Environment,
@@ -778,7 +779,7 @@ mod tests {
                         "beneficiary": {
                             "type": "payment_source",
                             "user_id": "payout-user-id",
-                            "external_account_id": "external-account-id",
+                            "payment_source_id": "payment-source-id",
                             "reference": "payout-reference"
                         },
                         "context_code": "internal",
@@ -868,7 +869,7 @@ mod tests {
                         created_at: now,
                         beneficiary: PayoutBeneficiary::PaymentSource {
                             user_id: "payout-user-id".to_string(),
-                            external_account_id: "external-account-id".to_string(),
+                            payment_source_id: "payment-source-id".to_string(),
                             reference: "payout-reference".to_string()
                         },
                         context_code: TransactionPayoutContextCode::Internal,

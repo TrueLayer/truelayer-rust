@@ -7,6 +7,7 @@ use std::fmt::{Debug, Formatter};
 pub mod auth;
 pub mod merchant_accounts;
 pub mod payments;
+pub mod payouts;
 
 pub(crate) struct TrueLayerClientInner {
     pub(crate) client: ClientWithMiddleware,
