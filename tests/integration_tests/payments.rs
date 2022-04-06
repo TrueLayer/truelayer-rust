@@ -337,7 +337,7 @@ impl CreatePaymentScenario {
         // Test a closed loop payout for the payment we just created
         if self.make_closed_loop_payout {
             // Get the payment source for the user created by this payment
-            let payment_source = retry(Duration::from_secs(10), || async {
+            let payment_source = retry(Duration::from_secs(60), || async {
                 ctx.client
                     .merchant_accounts
                     .list_payment_sources(
