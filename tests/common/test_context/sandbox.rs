@@ -1,5 +1,6 @@
 use crate::common::MockBankAction;
 use anyhow::Context;
+use std::str::FromStr;
 use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClient};
 use url::Url;
 
@@ -46,7 +47,7 @@ impl TestContext {
         &self,
         redirect_uri: &Url,
         action: MockBankAction,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<Url, anyhow::Error> {
         // The redirect uri from mock-bank looks like this:
         // https://pay-mock-connect.truelayer-sandbox.com/login/{simp_id}#token={auth_token}
         let simp_id = redirect_uri
@@ -57,7 +58,7 @@ impl TestContext {
         let token = &redirect_uri.fragment().context("Invalid redirect uri")?[6..];
 
         // Make a POST to mock-bank to set the authorization result
-        reqwest::Client::new()
+        let provider_return_uri = reqwest::Client::new()
             .post(
                 redirect_uri
                     .join(&format!(
@@ -73,8 +74,10 @@ impl TestContext {
             }))
             .send()
             .await?
-            .error_for_status()?;
+            .error_for_status()?
+            .text()
+            .await?;
 
-        Ok(())
+        Ok(Url::from_str(&provider_return_uri)?)
     }
 }

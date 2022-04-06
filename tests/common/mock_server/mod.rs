@@ -8,6 +8,7 @@ use chrono::Utc;
 use reqwest::Url;
 use std::{
     collections::HashMap,
+    str::FromStr,
     sync::{Arc, RwLock},
 };
 use tokio::sync::oneshot;
@@ -183,6 +184,10 @@ impl TrueLayerMockServer {
                 .service(
                     web::resource("/payouts/{id}").route(web::get().to(routes::get_payout_by_id)),
                 )
+                .service(
+                    web::resource("/payments-provider-return")
+                        .route(web::post().to(routes::submit_provider_return_parameters)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")
@@ -230,7 +235,7 @@ impl TrueLayerMockServer {
         &self,
         redirect_uri: &Url,
         action: MockBankAction,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<Url, anyhow::Error> {
         // Redirect uri is in the form `https://mock.redirect.uri/{payment_id}`
         let payment_id = redirect_uri
             .path_segments()
@@ -290,7 +295,10 @@ impl TrueLayerMockServer {
             },
         };
 
-        Ok(())
+        Ok(Url::from_str(&format!(
+            "https://mock.return.uri/#{}",
+            payment_id
+        ))?)
     }
 }
 

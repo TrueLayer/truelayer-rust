@@ -15,7 +15,7 @@ use truelayer_rust::apis::{
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
         CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
         Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitProviderSelectionActionRequest, User,
+        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest, User,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -426,4 +426,16 @@ pub(super) async fn get_payout_by_id(
         || HttpResponse::NotFound().finish(),
         |payment| HttpResponse::Ok().json(payment),
     )
+}
+
+/// POST /payments-provider-return
+pub(super) async fn submit_provider_return_parameters(
+    req: web::Json<SubmitProviderReturnParametersRequest>,
+) -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+        "resource": {
+            "type": "payment",
+            "payment_id": req.fragment
+        }
+    }))
 }

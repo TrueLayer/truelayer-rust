@@ -3,7 +3,8 @@ use crate::{
         auth::Token,
         payments::{
             CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
-            StartAuthorizationFlowResponse, SubmitProviderSelectionActionRequest,
+            StartAuthorizationFlowResponse, SubmitProviderReturnParametersRequest,
+            SubmitProviderReturnParametersResponse, SubmitProviderSelectionActionRequest,
             SubmitProviderSelectionActionResponse,
         },
         TrueLayerClientInner,
@@ -178,6 +179,35 @@ impl PaymentsApi {
 
         new_uri
     }
+
+    /// Submit direct return query and fragment parameters returned from the provider.
+    #[tracing::instrument(name = "Submit Provider Return Parameters", skip_all)]
+    pub async fn submit_provider_return_parameters(
+        &self,
+        req: &SubmitProviderReturnParametersRequest,
+    ) -> Result<SubmitProviderReturnParametersResponse, Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join("/payments-provider-return")
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(req)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
 }
 
 #[cfg(test)]
@@ -190,7 +220,7 @@ mod tests {
                 AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
                 CountryCode, CreatePaymentUserRequest, Currency, FailureStage, PaymentMethod,
                 PaymentStatus, Provider, ProviderSelection, ProviderSelectionSupported,
-                RedirectSupported, User,
+                RedirectSupported, SubmitProviderReturnParametersResponseResource, User,
             },
         },
         authenticator::Authenticator,
@@ -338,6 +368,7 @@ mod tests {
                     provider_selection: Some(ProviderSelectionSupported {}),
                     redirect: Some(RedirectSupported {
                         return_uri: "https://my.return.uri".to_string(),
+                        direct_return_uri: None,
                     }),
                 },
             )
@@ -558,5 +589,45 @@ mod tests {
             .await;
 
         assert!(api.get_by_id("non-existent").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn submit_provider_return_parameters() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        Mock::given(method("POST"))
+            .and(path("/payments-provider-return"))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({
+                "query": "query",
+                "fragment": "fragment"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "resource": {
+                    "type": "payment",
+                    "payment_id": "payment-id"
+                }
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .submit_provider_return_parameters(&SubmitProviderReturnParametersRequest {
+                query: "query".into(),
+                fragment: "fragment".into(),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            res,
+            SubmitProviderReturnParametersResponse {
+                resource: SubmitProviderReturnParametersResponseResource::Payment {
+                    payment_id: "payment-id".into()
+                }
+            }
+        );
     }
 }

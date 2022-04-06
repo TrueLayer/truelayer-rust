@@ -304,6 +304,7 @@ pub struct ProviderSelectionSupported {}
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct RedirectSupported {
     pub return_uri: String,
+    pub direct_return_uri: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -347,4 +348,21 @@ pub enum AuthorizationFlowResponseStatus {
         failure_stage: FailureStage,
         failure_reason: String,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitProviderReturnParametersRequest {
+    pub query: String,
+    pub fragment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitProviderReturnParametersResponse {
+    pub resource: SubmitProviderReturnParametersResponseResource,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SubmitProviderReturnParametersResponseResource {
+    Payment { payment_id: String },
 }
