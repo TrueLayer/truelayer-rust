@@ -73,7 +73,7 @@ impl TestContext {
         &self,
         redirect_uri: &Url,
         action: MockBankAction,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<Url, anyhow::Error> {
         self.mock_server
             .complete_mock_bank_redirect_authorization(redirect_uri, action)
             .await
