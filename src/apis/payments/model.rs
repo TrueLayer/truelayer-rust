@@ -278,7 +278,7 @@ pub enum AuthorizationFlowNextAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Provider {
-    pub provider_id: String,
+    pub id: String,
     pub display_name: Option<String>,
     pub icon_uri: Option<String>,
     pub logo_uri: Option<String>,

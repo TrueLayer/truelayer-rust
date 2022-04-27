@@ -148,7 +148,7 @@ pub(super) async fn start_authorization_flow(
             } else {
                 AuthorizationFlowNextAction::ProviderSelection {
                     providers: vec![Provider {
-                        provider_id: MOCK_PROVIDER_ID.to_string(),
+                        id: MOCK_PROVIDER_ID.to_string(),
                         display_name: None,
                         icon_uri: None,
                         logo_uri: None,
