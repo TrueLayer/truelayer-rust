@@ -106,12 +106,14 @@ pub enum PaymentStatus {
     Executed {
         executed_at: DateTime<Utc>,
         authorization_flow: Option<AuthorizationFlow>,
+        settlement_risk: Option<SettlementRisk>,
     },
     Settled {
         payment_source: PaymentSource,
         executed_at: DateTime<Utc>,
         settled_at: DateTime<Utc>,
         authorization_flow: Option<AuthorizationFlow>,
+        settlement_risk: Option<SettlementRisk>,
     },
     Failed {
         failed_at: DateTime<Utc>,
@@ -193,6 +195,11 @@ pub enum AccountIdentifier {
     Nrb {
         nrb: String,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SettlementRisk {
+    pub category: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

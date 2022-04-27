@@ -274,6 +274,7 @@ impl TrueLayerMockServer {
             MockBankAction::Execute => PaymentStatus::Executed {
                 executed_at: Utc::now(),
                 authorization_flow: Some(next_auth_flow),
+                settlement_risk: None,
             },
             MockBankAction::RejectAuthorisation => PaymentStatus::Failed {
                 failed_at: Utc::now(),
