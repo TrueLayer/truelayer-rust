@@ -344,7 +344,7 @@ mod tests {
                             "type": "provider_selection",
                             "providers": [
                                 {
-                                    "provider_id": "ob-bank-name",
+                                    "id": "ob-bank-name",
                                     "display_name": "Bank Name",
                                     "icon_uri": "https://truelayer-provider-assets.s3.amazonaws.com/global/icon/generic.svg",
                                     "logo_uri": "https://truelayer-provider-assets.s3.amazonaws.com/global/logos/generic.svg",
@@ -386,7 +386,7 @@ mod tests {
             res.authorization_flow.unwrap().actions.unwrap().next,
             AuthorizationFlowNextAction::ProviderSelection {
                 providers: vec![Provider {
-                    provider_id: "ob-bank-name".to_string(),
+                    id: "ob-bank-name".to_string(),
                     display_name: Some("Bank Name".to_string()),
                     icon_uri: Some("https://truelayer-provider-assets.s3.amazonaws.com/global/icon/generic.svg".to_string()),
                     logo_uri: Some("https://truelayer-provider-assets.s3.amazonaws.com/global/logos/generic.svg".to_string()),
