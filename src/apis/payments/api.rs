@@ -3,9 +3,9 @@ use crate::{
         auth::Token,
         payments::{
             CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
-            StartAuthorizationFlowResponse, SubmitProviderReturnParametersRequest,
-            SubmitProviderReturnParametersResponse, SubmitProviderSelectionActionRequest,
-            SubmitProviderSelectionActionResponse,
+            StartAuthorizationFlowResponse, SubmitFormActionRequest, SubmitFormActionResponse,
+            SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponse,
+            SubmitProviderSelectionActionRequest, SubmitProviderSelectionActionResponse,
         },
         TrueLayerClientInner,
     },
@@ -130,6 +130,39 @@ impl PaymentsApi {
         Ok(res)
     }
 
+    /// Submits the form inputs entered by the PSU.
+    #[tracing::instrument(name = "Submit Form", skip(self, req))]
+    pub async fn submit_form(
+        &self,
+        payment_id: &str,
+        req: &SubmitFormActionRequest,
+    ) -> Result<SubmitFormActionResponse, Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/authorization-flow/actions/form",
+                        encode(payment_id)
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(req)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
     /// Gets the details of an existing payment.
     ///
     /// If there's no payment with the given id, `None` is returned.
@@ -217,10 +250,11 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{
-                AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-                CountryCode, CreatePaymentUserRequest, Currency, FailureStage, PaymentMethod,
-                PaymentStatus, Provider, ProviderSelection, ProviderSelectionSupported,
-                RedirectSupported, SubmitProviderReturnParametersResponseResource, User,
+                AdditionalInputType, AuthorizationFlowNextAction, AuthorizationFlowResponseStatus,
+                Beneficiary, CountryCode, CreatePaymentUserRequest, Currency, FailureStage,
+                FormSupported, PaymentMethod, PaymentStatus, Provider, ProviderSelection,
+                ProviderSelectionSupported, RedirectSupported,
+                SubmitProviderReturnParametersResponseResource, User,
             },
         },
         authenticator::Authenticator,
@@ -230,6 +264,7 @@ mod tests {
     use chrono::Utc;
     use reqwest::Url;
     use serde_json::json;
+    use std::collections::HashMap;
     use wiremock::{
         matchers::{body_partial_json, header_exists, method, path},
         Mock, MockServer, ResponseTemplate,
@@ -370,6 +405,13 @@ mod tests {
                         return_uri: "https://my.return.uri".to_string(),
                         direct_return_uri: None,
                     }),
+                    form: Some(FormSupported {
+                        input_types: vec![
+                            AdditionalInputType::Text,
+                            AdditionalInputType::Select,
+                            AdditionalInputType::TextWithImage,
+                        ],
+                    }),
                 },
             )
             .await
@@ -502,6 +544,66 @@ mod tests {
                 failure_reason: "mock_reason".to_string()
             }
         );
+        assert!(res
+            .authorization_flow
+            .as_ref()
+            .unwrap()
+            .configuration
+            .is_none());
+        assert_eq!(
+            res.authorization_flow.unwrap().actions.unwrap().next,
+            AuthorizationFlowNextAction::Redirect {
+                uri: "https://my.redirect.uri".to_string(),
+                metadata: None
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_form_inputs() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/payments/{}/authorization-flow/actions/form",
+                payment_id
+            )))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(
+                json!({"inputs": { "input_key_1": "input_val_1",  "input_key_2": "input_val_2"}}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "authorization_flow": {
+                    "actions": {
+                        "next": {
+                            "type": "redirect",
+                            "uri": "https://my.redirect.uri"
+                        }
+                    }
+                },
+                "status": "authorizing"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .submit_form(
+                payment_id,
+                &SubmitFormActionRequest {
+                    inputs: HashMap::from([
+                        ("input_key_1".into(), "input_val_1".into()),
+                        ("input_key_2".into(), "input_val_2".into()),
+                    ]),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status, AuthorizationFlowResponseStatus::Authorizing);
         assert!(res
             .authorization_flow
             .as_ref()
