@@ -122,22 +122,22 @@ pub(super) async fn start_authorization_flow(
     };
 
     // Check if the payment was created with a preselected provider
-    let provider_selection: Option<String> = match payment.payment_method {
+    let provider_selection: Option<&str> = match &payment.payment_method {
         PaymentMethod::BankTransfer {
-            provider_selection:
-                ProviderSelection::Preselected {
-                    ref provider_id, ..
-                },
+            provider_selection: ProviderSelection::Preselected { provider_id, .. },
             ..
         } => {
             // Bail out if the user preselected an unexpected provider
-            if provider_id != MOCK_PROVIDER_ID_REDIRECT
-                && provider_id != MOCK_PROVIDER_ID_ADDITIONAL_INPUTS
+            if !vec![
+                MOCK_PROVIDER_ID_REDIRECT,
+                MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
+            ]
+            .contains(&provider_id.as_str())
             {
                 return HttpResponse::BadRequest().finish();
             }
 
-            Some(provider_id.clone())
+            Some(provider_id)
         }
         _ => None,
     };
@@ -146,7 +146,7 @@ pub(super) async fn start_authorization_flow(
         PaymentStatus::AuthorizationRequired => {
             // Choose the next action depending on whether the provider has already been preselected or not
             let next_action = match provider_selection {
-                Some(provider_id) => match select_next_action(&provider_id, &payment.id) {
+                Some(provider_id) => match select_next_action(provider_id, &payment.id) {
                     Some(action) => action,
                     None => return HttpResponse::BadRequest().finish(),
                 },

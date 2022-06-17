@@ -132,7 +132,7 @@ impl PaymentsApi {
 
     /// Submits the form inputs entered by the PSU.
     #[tracing::instrument(name = "Submit Form", skip(self, req))]
-    pub async fn submit_form(
+    pub async fn submit_form_inputs(
         &self,
         payment_id: &str,
         req: &SubmitFormActionRequest,
@@ -565,6 +565,10 @@ mod tests {
         let api = PaymentsApi::new(Arc::new(inner));
 
         let payment_id = "payment-id";
+        let inputs = HashMap::from([
+            ("input_key_1".into(), "input_val_1".into()),
+            ("input_key_2".into(), "input_val_2".into()),
+        ]);
 
         Mock::given(method("POST"))
             .and(path(format!(
@@ -572,9 +576,7 @@ mod tests {
                 payment_id
             )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
-            .and(body_partial_json(
-                json!({"inputs": { "input_key_1": "input_val_1",  "input_key_2": "input_val_2"}}),
-            ))
+            .and(body_partial_json(json!({ "inputs": inputs })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "authorization_flow": {
                     "actions": {
@@ -591,15 +593,7 @@ mod tests {
             .await;
 
         let res = api
-            .submit_form(
-                payment_id,
-                &SubmitFormActionRequest {
-                    inputs: HashMap::from([
-                        ("input_key_1".into(), "input_val_1".into()),
-                        ("input_key_2".into(), "input_val_2".into()),
-                    ]),
-                },
-            )
+            .submit_form_inputs(payment_id, &SubmitFormActionRequest { inputs })
             .await
             .unwrap();
 

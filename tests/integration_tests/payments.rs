@@ -321,7 +321,7 @@ impl CreatePaymentScenario {
             let submit_form_response = ctx
                 .client
                 .payments
-                .submit_form(
+                .submit_form_inputs(
                     &res.id,
                     &SubmitFormActionRequest {
                         inputs: HashMap::from([("input_key_1".to_string(), "123".to_string())]),

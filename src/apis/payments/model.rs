@@ -354,8 +354,10 @@ pub struct AdditionalInputDisplayText {
 #[serde(rename_all = "snake_case")]
 pub enum AdditionalInputFormat {
     AccountNumber,
+    Alphabetical,
     Alphanumerical,
     Any,
+    Email,
     Iban,
     Numerical,
     SortCode,
