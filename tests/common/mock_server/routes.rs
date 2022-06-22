@@ -239,12 +239,12 @@ fn select_next_action(provider_id: &str, payment_id: &str) -> Option<Authorizati
     if provider_id == MOCK_PROVIDER_ID_ADDITIONAL_INPUTS {
         return Some(AuthorizationFlowNextAction::Form {
             inputs: vec![
-                (AdditionalInput::Text {
-                    id: "input_key_1".to_string(),
+                AdditionalInput::Text {
+                    id: "psu-branch-code".to_string(),
                     mandatory: true,
                     display_text: AdditionalInputDisplayText {
-                        key: "input_key_1.display_text".to_string(),
-                        default: "Display text".to_string(),
+                        key: "psu-branch-code.display_text".to_string(),
+                        default: "Branch code".to_string(),
                     },
                     format: AdditionalInputFormat::Any,
                     sensitive: true,
@@ -253,12 +253,52 @@ fn select_next_action(provider_id: &str, payment_id: &str) -> Option<Authorizati
                     regexes: vec![AdditionalInputRegex {
                         regex: r"^\d{3}$".to_string(),
                         message: AdditionalInputDisplayText {
-                            key: "input_key_1.regex".to_string(),
+                            key: "psu-branch-code.regex".to_string(),
                             default: "Validation Regex".to_string(),
                         },
                     }],
                     description: None,
-                }),
+                },
+                AdditionalInput::Text {
+                    id: "psu-account-number".to_string(),
+                    mandatory: true,
+                    display_text: AdditionalInputDisplayText {
+                        key: "psu-account-number.display_text".to_string(),
+                        default: "Account number".to_string(),
+                    },
+                    format: AdditionalInputFormat::Any,
+                    sensitive: true,
+                    min_length: 3,
+                    max_length: 3,
+                    regexes: vec![AdditionalInputRegex {
+                        regex: r"^\d{3}$".to_string(),
+                        message: AdditionalInputDisplayText {
+                            key: "psu-account-number.regex".to_string(),
+                            default: "Validation Regex".to_string(),
+                        },
+                    }],
+                    description: None,
+                },
+                AdditionalInput::Text {
+                    id: "psu-sub-account".to_string(),
+                    mandatory: true,
+                    display_text: AdditionalInputDisplayText {
+                        key: "psu-sub-account.display_text".to_string(),
+                        default: "Sub-account".to_string(),
+                    },
+                    format: AdditionalInputFormat::Any,
+                    sensitive: true,
+                    min_length: 3,
+                    max_length: 3,
+                    regexes: vec![AdditionalInputRegex {
+                        regex: r"^\d{3}$".to_string(),
+                        message: AdditionalInputDisplayText {
+                            key: "psu-sub-account.regex".to_string(),
+                            default: "Validation Regex".to_string(),
+                        },
+                    }],
+                    description: None,
+                },
             ],
         });
     }
@@ -274,7 +314,7 @@ pub(super) async fn submit_form(
     let id = path.into_inner();
 
     // We are a very simple and humble mock
-    if body.inputs.len() != 1 || !body.inputs.contains_key("input_key_1") {
+    if body.inputs.len() != 3 {
         return HttpResponse::BadRequest().finish();
     }
 

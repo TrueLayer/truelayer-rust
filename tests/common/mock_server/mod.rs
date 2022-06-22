@@ -23,7 +23,7 @@ use truelayer_rust::apis::{
 use uuid::Uuid;
 
 static MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
-static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-gb-redirect-additional-inputs";
+static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
 static MOCK_REDIRECT_URI: &str = "https://mock.redirect.uri/";
 
 #[derive(Clone)]
