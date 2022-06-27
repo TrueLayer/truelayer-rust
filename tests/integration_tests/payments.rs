@@ -174,11 +174,7 @@ impl CreatePaymentScenario {
                 email: Some("some.one@email.com".to_string()),
                 phone: None,
             },
-            metadata: Some({
-                let mut map = HashMap::new();
-                map.insert("some".into(), "metadata".into());
-                map
-            }),
+            metadata: Some(HashMap::from([("some".into(), "metadata".into())])),
         };
         let res = ctx
             .client

@@ -133,7 +133,7 @@ pub(super) async fn start_authorization_flow(
                     ..
                 } => {
                     // Bail out if the user preselected an unexpected provider
-                    if !vec![
+                    if ![
                         MOCK_PROVIDER_ID_REDIRECT,
                         MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
                     ]
