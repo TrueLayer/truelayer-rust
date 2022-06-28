@@ -22,7 +22,8 @@ use truelayer_rust::apis::{
 };
 use uuid::Uuid;
 
-static MOCK_PROVIDER_ID: &str = "mock-payments-gb-redirect";
+static MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
+static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
 static MOCK_REDIRECT_URI: &str = "https://mock.redirect.uri/";
 
 #[derive(Clone)]
@@ -152,6 +153,15 @@ impl TrueLayerMockServer {
                             true,
                         )))
                         .route(web::post().to(routes::submit_provider_selection)),
+                )
+                .service(
+                    web::resource("/payments/{id}/authorization-flow/actions/form")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::submit_form)),
                 )
                 .service(
                     web::resource("/merchant-accounts")

@@ -233,9 +233,16 @@ pub struct ProviderFilter {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {
-    GB,
+    DE,
+    ES,
     FR,
+    GB,
     IE,
+    IT,
+    LT,
+    NL,
+    PL,
+    PT,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
@@ -280,6 +287,9 @@ pub enum AuthorizationFlowNextAction {
         uri: String,
         metadata: Option<RedirectActionMetadata>,
     },
+    Form {
+        inputs: Vec<AdditionalInput>,
+    },
     Wait,
 }
 
@@ -300,9 +310,83 @@ pub enum RedirectActionMetadata {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AdditionalInput {
+    Text {
+        id: String,
+        mandatory: bool,
+        display_text: AdditionalInputDisplayText,
+        description: Option<AdditionalInputDisplayText>,
+        format: AdditionalInputFormat,
+        sensitive: bool,
+        min_length: i32,
+        max_length: i32,
+        regexes: Vec<AdditionalInputRegex>,
+    },
+    Select {
+        id: String,
+        mandatory: bool,
+        display_text: AdditionalInputDisplayText,
+        description: Option<AdditionalInputDisplayText>,
+        options: Vec<AdditionalInputOption>,
+    },
+    TextWithImage {
+        id: String,
+        mandatory: bool,
+        display_text: AdditionalInputDisplayText,
+        description: Option<AdditionalInputDisplayText>,
+        format: AdditionalInputFormat,
+        sensitive: bool,
+        min_length: i32,
+        max_length: i32,
+        regexes: Vec<AdditionalInputRegex>,
+        image: AdditionalInputImage,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct AdditionalInputDisplayText {
+    pub key: String,
+    pub default: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AdditionalInputFormat {
+    AccountNumber,
+    Alphabetical,
+    Alphanumerical,
+    Any,
+    Email,
+    Iban,
+    Numerical,
+    SortCode,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct AdditionalInputRegex {
+    pub regex: String,
+    pub message: AdditionalInputDisplayText,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct AdditionalInputOption {
+    pub id: String,
+    pub display_text: AdditionalInputDisplayText,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AdditionalInputImage {
+    Uri { uri: String },
+    Base64 { data: String, media_type: String },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AuthorizationFlowConfiguration {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub form: Option<FormSupported>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -312,6 +396,19 @@ pub struct ProviderSelectionSupported {}
 pub struct RedirectSupported {
     pub return_uri: String,
     pub direct_return_uri: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct FormSupported {
+    pub input_types: Vec<AdditionalInputType>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AdditionalInputType {
+    Text,
+    Select,
+    TextWithImage,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -326,6 +423,7 @@ pub struct User {
 pub struct StartAuthorizationFlowRequest {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub form: Option<FormSupported>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -342,6 +440,18 @@ pub struct SubmitProviderSelectionActionRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct SubmitProviderSelectionActionResponse {
+    pub authorization_flow: Option<AuthorizationFlow>,
+    #[serde(flatten)]
+    pub status: AuthorizationFlowResponseStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitFormActionRequest {
+    pub inputs: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitFormActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
     pub status: AuthorizationFlowResponseStatus,

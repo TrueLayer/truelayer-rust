@@ -1,5 +1,6 @@
 use crate::common::mock_server::{
-    MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_ID, MOCK_REDIRECT_URI,
+    MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
+    MOCK_PROVIDER_ID_REDIRECT, MOCK_REDIRECT_URI,
 };
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
@@ -11,11 +12,13 @@ use truelayer_rust::apis::{
         TransactionPayinStatus, TransactionType,
     },
     payments::{
-        AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
+        AccountIdentifier, AdditionalInput, AdditionalInputDisplayText, AdditionalInputFormat,
+        AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
         CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
         Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest, User,
+        SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
+        SubmitProviderSelectionActionRequest, User,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -118,44 +121,41 @@ pub(super) async fn start_authorization_flow(
         None => return HttpResponse::NotFound().finish(),
     };
 
-    // Check if the payment was created with a preselected provider
-    let is_provider_preselected = match payment.payment_method {
-        PaymentMethod::BankTransfer {
-            provider_selection:
-                ProviderSelection::Preselected {
-                    ref provider_id, ..
-                },
-            ..
-        } => {
-            // Bail out if the user preselected an unexpected provider
-            if provider_id != MOCK_PROVIDER_ID {
-                return HttpResponse::BadRequest().finish();
-            }
-
-            true
-        }
-        _ => false,
-    };
-
     match payment.status {
         PaymentStatus::AuthorizationRequired => {
-            // Choose the next action depending on whether the provider has already been preselected or not
-            let next_action = if is_provider_preselected {
-                AuthorizationFlowNextAction::Redirect {
-                    uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
-                    metadata: None,
+            // Choose the next action depending on whether the provider has been preselected or not
+            let next_action = match payment.payment_method {
+                PaymentMethod::BankTransfer {
+                    provider_selection:
+                        ProviderSelection::Preselected {
+                            ref provider_id, ..
+                        },
+                    ..
+                } => {
+                    // Bail out if the user preselected an unexpected provider
+                    if ![
+                        MOCK_PROVIDER_ID_REDIRECT,
+                        MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
+                    ]
+                    .contains(&provider_id.as_str())
+                    {
+                        return HttpResponse::BadRequest().finish();
+                    }
+                    match select_next_action(provider_id, &payment.id) {
+                        Some(action) => action,
+                        None => return HttpResponse::BadRequest().finish(),
+                    }
                 }
-            } else {
-                AuthorizationFlowNextAction::ProviderSelection {
+                _ => AuthorizationFlowNextAction::ProviderSelection {
                     providers: vec![Provider {
-                        id: MOCK_PROVIDER_ID.to_string(),
+                        id: MOCK_PROVIDER_ID_REDIRECT.to_string(),
                         display_name: None,
                         icon_uri: None,
                         logo_uri: None,
                         bg_color: None,
                         country_code: None,
                     }],
-                }
+                },
             };
 
             // Move the payment to the Authorizing state
@@ -184,8 +184,132 @@ pub(super) async fn submit_provider_selection(
 ) -> HttpResponse {
     let id = path.into_inner();
 
+    // Extract the payment from its id
+    let mut map = storage.write().unwrap();
+    let payment = match map.payments.get_mut(&id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    let next_action = match select_next_action(&body.provider_id, &payment.id) {
+        Some(action) => action,
+        None => return HttpResponse::BadRequest().finish(),
+    };
+
+    match payment.status {
+        PaymentStatus::Authorizing {
+            authorization_flow:
+                AuthorizationFlow {
+                    actions:
+                        Some(AuthorizationFlowActions {
+                            next: AuthorizationFlowNextAction::ProviderSelection { .. },
+                        }),
+                    ..
+                },
+        } => {
+            let authorization_flow = AuthorizationFlow {
+                configuration: None,
+                actions: Some(AuthorizationFlowActions { next: next_action }),
+            };
+            payment.status = PaymentStatus::Authorizing {
+                authorization_flow: authorization_flow.clone(),
+            };
+
+            HttpResponse::Ok().json(StartAuthorizationFlowResponse {
+                authorization_flow: Some(authorization_flow),
+                status: AuthorizationFlowResponseStatus::Authorizing,
+            })
+        }
+        _ => HttpResponse::BadRequest().finish(),
+    }
+}
+
+fn select_next_action(provider_id: &str, payment_id: &str) -> Option<AuthorizationFlowNextAction> {
+    if provider_id == MOCK_PROVIDER_ID_REDIRECT {
+        return Some(AuthorizationFlowNextAction::Redirect {
+            uri: format!("{}{}", MOCK_REDIRECT_URI, payment_id),
+            metadata: None,
+        });
+    }
+    if provider_id == MOCK_PROVIDER_ID_ADDITIONAL_INPUTS {
+        return Some(AuthorizationFlowNextAction::Form {
+            inputs: vec![
+                AdditionalInput::Text {
+                    id: "psu-branch-code".to_string(),
+                    mandatory: true,
+                    display_text: AdditionalInputDisplayText {
+                        key: "psu-branch-code.display_text".to_string(),
+                        default: "Branch code".to_string(),
+                    },
+                    format: AdditionalInputFormat::Any,
+                    sensitive: true,
+                    min_length: 3,
+                    max_length: 3,
+                    regexes: vec![AdditionalInputRegex {
+                        regex: r"^\d{3}$".to_string(),
+                        message: AdditionalInputDisplayText {
+                            key: "psu-branch-code.regex".to_string(),
+                            default: "Validation Regex".to_string(),
+                        },
+                    }],
+                    description: None,
+                },
+                AdditionalInput::Text {
+                    id: "psu-account-number".to_string(),
+                    mandatory: true,
+                    display_text: AdditionalInputDisplayText {
+                        key: "psu-account-number.display_text".to_string(),
+                        default: "Account number".to_string(),
+                    },
+                    format: AdditionalInputFormat::Any,
+                    sensitive: true,
+                    min_length: 3,
+                    max_length: 3,
+                    regexes: vec![AdditionalInputRegex {
+                        regex: r"^\d{3}$".to_string(),
+                        message: AdditionalInputDisplayText {
+                            key: "psu-account-number.regex".to_string(),
+                            default: "Validation Regex".to_string(),
+                        },
+                    }],
+                    description: None,
+                },
+                AdditionalInput::Text {
+                    id: "psu-sub-account".to_string(),
+                    mandatory: true,
+                    display_text: AdditionalInputDisplayText {
+                        key: "psu-sub-account.display_text".to_string(),
+                        default: "Sub-account".to_string(),
+                    },
+                    format: AdditionalInputFormat::Any,
+                    sensitive: true,
+                    min_length: 3,
+                    max_length: 3,
+                    regexes: vec![AdditionalInputRegex {
+                        regex: r"^\d{3}$".to_string(),
+                        message: AdditionalInputDisplayText {
+                            key: "psu-sub-account.regex".to_string(),
+                            default: "Validation Regex".to_string(),
+                        },
+                    }],
+                    description: None,
+                },
+            ],
+        });
+    }
+    None
+}
+
+/// POST /payments/{id}/authorization-flow/form
+pub(super) async fn submit_form(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+    body: web::Json<SubmitFormActionRequest>,
+) -> HttpResponse {
+    let id = path.into_inner();
+
     // We are a very simple and humble mock
-    if body.provider_id != MOCK_PROVIDER_ID {
+    if body.inputs.len() != 3 {
         return HttpResponse::BadRequest().finish();
     }
 
@@ -202,7 +326,7 @@ pub(super) async fn submit_provider_selection(
                 AuthorizationFlow {
                     actions:
                         Some(AuthorizationFlowActions {
-                            next: AuthorizationFlowNextAction::ProviderSelection { .. },
+                            next: AuthorizationFlowNextAction::Form { .. },
                         }),
                     ..
                 },
