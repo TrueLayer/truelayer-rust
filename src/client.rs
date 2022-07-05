@@ -207,7 +207,7 @@ fn build_client_with_middleware(
 ) -> ClientWithMiddleware {
     let mut builder = reqwest_middleware::ClientBuilder::new(client)
         .with(InjectUserAgentMiddleware::new())
-        .with(TracingMiddleware)
+        .with(TracingMiddleware::default())
         .with(ErrorHandlingMiddleware);
 
     if let Some(retry_policy) = retry_policy {
