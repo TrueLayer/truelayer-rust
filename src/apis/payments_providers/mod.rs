@@ -1,4 +1,7 @@
 //! APIs and models related to payments providers.
 
-pub mod api;
-pub mod model;
+mod api;
+mod model;
+
+pub use api::PaymentsProvidersApi;
+pub use model::*;

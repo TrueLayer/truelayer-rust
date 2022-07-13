@@ -20,6 +20,9 @@ impl PaymentsProvidersApi {
     /// Gets the details of a payments provider.
     ///
     /// If there's no provider with the given id, `None` is returned.
+    ///
+    /// This client always sets the `client_id` query parameter from the client configuration.
+    /// Thus, only provider capabilities which are available to the `client_id` will be returned.
     #[tracing::instrument(name = "Get Provider by ID", skip(self))]
     pub async fn get_by_id(&self, id: &str) -> Result<Option<Provider>, Error> {
         let res = self
@@ -65,7 +68,7 @@ mod tests {
     use crate::{
         apis::{
             auth::Credentials,
-            payments::{CountryCode, PaymentsApi},
+            payments::CountryCode,
             payments_providers::{
                 api::PaymentsProvidersApi,
                 model::{capabilities, Capabilities, PaymentScheme},
@@ -80,7 +83,6 @@ mod tests {
     async fn mock_client_and_server() -> (TrueLayerClientInner, MockServer) {
         let mock_server = MockServer::start().await;
 
-        // TODO unnecessary
         let credentials = Credentials::ClientCredentials {
             client_id: "client-id".into(),
             client_secret: "client-secret".into(),
@@ -170,10 +172,10 @@ mod tests {
     #[tokio::test]
     async fn get_by_id_not_found() {
         let (inner, mock_server) = mock_client_and_server().await;
-        let api = PaymentsApi::new(Arc::new(inner));
+        let api = PaymentsProvidersApi::new(Arc::new(inner));
 
         Mock::given(method("GET"))
-            .and(path("/payments/non-existent"))
+            .and(path("/payments-providers/non-existent"))
             .respond_with(ResponseTemplate::new(404))
             .expect(1)
             .mount(&mock_server)

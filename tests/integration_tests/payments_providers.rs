@@ -1,7 +1,7 @@
 use crate::common::test_context::TestContext;
 use truelayer_rust::apis::{
     payments::{CountryCode, ReleaseChannel},
-    payments_providers::model::{capabilities, Capabilities, PaymentScheme},
+    payments_providers::{capabilities, Capabilities, PaymentScheme},
 };
 
 #[tokio::test]

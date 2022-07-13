@@ -6,7 +6,7 @@ use crate::{
         auth::{AuthApi, Credentials},
         merchant_accounts::MerchantAccountsApi,
         payments::PaymentsApi,
-        payments_providers::api::PaymentsProvidersApi,
+        payments_providers::PaymentsProvidersApi,
         payouts::PayoutsApi,
         TrueLayerClientInner,
     },

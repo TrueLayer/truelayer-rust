@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 #[derive(Debug, Clone)]
 pub struct Authenticator {
     tx: mpsc::UnboundedSender<oneshot::Sender<Result<AuthenticationResult, Error>>>,
-    pub credentials: Credentials,
+    pub(crate) credentials: Credentials,
 }
 
 impl Authenticator {

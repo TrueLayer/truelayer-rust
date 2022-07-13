@@ -19,7 +19,7 @@ use truelayer_rust::apis::{
         AuthorizationFlowNextAction, CountryCode, Currency, FailureStage, Payment, PaymentStatus,
         ReleaseChannel,
     },
-    payments_providers::model::{capabilities, Capabilities, PaymentScheme, Provider},
+    payments_providers::{capabilities, Capabilities, PaymentScheme, Provider},
     payouts::Payout,
 };
 use uuid::Uuid;
