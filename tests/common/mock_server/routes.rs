@@ -360,6 +360,24 @@ pub(super) async fn hpp_page() -> HttpResponse {
     HttpResponse::Ok().finish()
 }
 
+/// GET /payments-providers/{id}
+pub(super) async fn get_payments_provider_by_id(
+    configuration: web::Data<MockServerConfiguration>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let id = path.into_inner();
+
+    let provider = configuration
+        .payments_providers
+        .iter()
+        .find(|m| m.id == *id);
+
+    match provider {
+        Some(p) => HttpResponse::Ok().json(p),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
 /// GET /merchant-accounts
 pub(super) async fn list_merchant_accounts(
     configuration: web::Data<MockServerConfiguration>,

@@ -147,6 +147,7 @@ cargo test
 ### Acceptance tests
 
 To execute tests against TrueLayer sandbox environment, you should set the below environment variables:
+
 - `ACCEPTANCE_TESTS_CLIENT_ID`
 - `ACCEPTANCE_TESTS_CLIENT_SECRET`
 - `ACCEPTANCE_TESTS_SIGNING_KEY_ID`

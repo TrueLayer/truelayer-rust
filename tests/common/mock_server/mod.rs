@@ -16,8 +16,10 @@ use truelayer_rust::apis::{
     merchant_accounts::{MerchantAccount, SweepingSettings},
     payments::{
         AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, Currency, FailureStage, Payment, PaymentStatus,
+        AuthorizationFlowNextAction, CountryCode, Currency, FailureStage, Payment, PaymentStatus,
+        ReleaseChannel,
     },
+    payments_providers::model::{capabilities, Capabilities, PaymentScheme, Provider},
     payouts::Payout,
 };
 use uuid::Uuid;
@@ -34,6 +36,7 @@ struct MockServerConfiguration {
     signing_public_key: Vec<u8>,
     access_token: String,
     merchant_accounts: HashMap<Currency, MerchantAccount>,
+    payments_providers: Vec<Provider>,
     sweeping_approved_ibans: HashMap<String, String>,
 }
 
@@ -101,6 +104,24 @@ impl TrueLayerMockServer {
             ]
             .into_iter()
             .collect(),
+            payments_providers: vec![Provider {
+                id: "mock-payments-gb-redirect".into(),
+                display_name: Some("Mock UK Payments - Redirect Flow".into()),
+                icon_uri: None,
+                logo_uri: None,
+                bg_color: None,
+                country_code: Some(CountryCode::GB),
+                capabilities: Capabilities {
+                    payments: capabilities::Payments {
+                        bank_transfer: Some(capabilities::BankTransfer {
+                            release_channel: ReleaseChannel::GeneralAvailability,
+                            schemes: vec![PaymentScheme {
+                                id: "faster_payments_service".into(),
+                            }],
+                        }),
+                    },
+                },
+            }],
             sweeping_approved_ibans: [
                 // Random IBANs
                 (merchant_account_gbp_id, "some-uk-iban".into()),
@@ -109,7 +130,6 @@ impl TrueLayerMockServer {
             .collect(),
         };
         let configuration_clone = configuration.clone();
-
         // Setup the in-memory storage
         let storage = MockServerStorage::default();
         let storage_clone = storage.clone();
@@ -162,6 +182,10 @@ impl TrueLayerMockServer {
                             true,
                         )))
                         .route(web::post().to(routes::submit_form)),
+                )
+                .service(
+                    web::resource("/payments-providers/{id}")
+                        .route(web::get().to(routes::get_payments_provider_by_id)),
                 )
                 .service(
                     web::resource("/merchant-accounts")
