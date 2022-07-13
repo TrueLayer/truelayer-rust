@@ -337,7 +337,10 @@ mod tests {
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
                 payment_method: PaymentMethod::BankTransfer {
-                    provider_selection: ProviderSelection::UserSelected { filter: None },
+                    provider_selection: ProviderSelection::UserSelected {
+                        filter: None,
+                        preferred_scheme_id: None,
+                    },
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
                         account_holder_name: None,
@@ -653,7 +656,10 @@ mod tests {
         assert_eq!(
             payment.payment_method,
             PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
+                provider_selection: ProviderSelection::UserSelected {
+                    filter: None,
+                    preferred_scheme_id: None
+                },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: "merchant-account-id".to_string(),
                     account_holder_name: None
