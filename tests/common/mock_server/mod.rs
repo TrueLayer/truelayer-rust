@@ -104,24 +104,46 @@ impl TrueLayerMockServer {
             ]
             .into_iter()
             .collect(),
-            payments_providers: vec![Provider {
-                id: "mock-payments-gb-redirect".into(),
-                display_name: Some("Mock UK Payments - Redirect Flow".into()),
-                icon_uri: None,
-                logo_uri: None,
-                bg_color: None,
-                country_code: Some(CountryCode::GB),
-                capabilities: Capabilities {
-                    payments: capabilities::Payments {
-                        bank_transfer: Some(capabilities::BankTransfer {
-                            release_channel: ReleaseChannel::GeneralAvailability,
-                            schemes: vec![PaymentScheme {
-                                id: "faster_payments_service".into(),
-                            }],
-                        }),
+            payments_providers: vec![
+                Provider {
+                    id: "mock-payments-gb-redirect".into(),
+                    display_name: Some("Mock UK Payments - Redirect Flow".into()),
+                    icon_uri: None,
+                    logo_uri: None,
+                    bg_color: None,
+                    country_code: Some(CountryCode::GB),
+                    capabilities: Capabilities {
+                        payments: capabilities::Payments {
+                            bank_transfer: Some(capabilities::BankTransfer {
+                                release_channel: ReleaseChannel::GeneralAvailability,
+                                schemes: vec![PaymentScheme {
+                                    id: "faster_payments_service".into(),
+                                }],
+                            }),
+                        },
                     },
                 },
-            }],
+                Provider {
+                    id: "mock-payments-de-redirect-additional-input-text".into(),
+                    display_name: Some(
+                        "Mock German Payments - Redirect Flow with additional inputs".into(),
+                    ),
+                    icon_uri: None,
+                    logo_uri: None,
+                    bg_color: None,
+                    country_code: Some(CountryCode::DE),
+                    capabilities: Capabilities {
+                        payments: capabilities::Payments {
+                            bank_transfer: Some(capabilities::BankTransfer {
+                                release_channel: ReleaseChannel::GeneralAvailability,
+                                schemes: vec![PaymentScheme {
+                                    id: "sepa_credit_transfer".into(),
+                                }],
+                            }),
+                        },
+                    },
+                },
+            ],
             sweeping_approved_ibans: [
                 // Random IBANs
                 (merchant_account_gbp_id, "some-uk-iban".into()),

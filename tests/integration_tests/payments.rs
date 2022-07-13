@@ -137,24 +137,44 @@ impl CreatePaymentScenario {
     async fn run(&self) {
         let ctx = TestContext::start().await;
 
+        let provider_selection = match &self.provider_selection {
+            ScenarioProviderSelection::UserSelected { .. } => {
+                ProviderSelection::UserSelected { filter: None }
+            }
+            ScenarioProviderSelection::Preselected {
+                provider_id,
+                scheme_id,
+            } => {
+                let provider = ctx
+                    .client
+                    .payments_providers
+                    .get_by_id(provider_id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let available_schemes = provider
+                    .capabilities
+                    .payments
+                    .bank_transfer
+                    .unwrap()
+                    .schemes;
+
+                assert!(available_schemes.iter().any(|s| &s.id == scheme_id));
+
+                ProviderSelection::Preselected {
+                    provider_id: provider_id.clone(),
+                    scheme_id: scheme_id.clone(),
+                    remitter: None,
+                }
+            }
+        };
+
         // Create a payment
         let create_payment_request = CreatePaymentRequest {
             amount_in_minor: 1,
             currency: self.currency.clone(),
             payment_method: PaymentMethod::BankTransfer {
-                provider_selection: match &self.provider_selection {
-                    ScenarioProviderSelection::UserSelected { .. } => {
-                        ProviderSelection::UserSelected { filter: None }
-                    }
-                    ScenarioProviderSelection::Preselected {
-                        provider_id,
-                        scheme_id,
-                    } => ProviderSelection::Preselected {
-                        provider_id: provider_id.clone(),
-                        scheme_id: scheme_id.clone(),
-                        remitter: None,
-                    },
-                },
+                provider_selection,
                 beneficiary: match self.beneficiary {
                     ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
                         merchant_account_id: ctx.merchant_account_gbp_id.clone(),
