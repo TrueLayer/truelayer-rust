@@ -108,6 +108,7 @@ pub(super) async fn get_payment_by_id(
 
 /// POST /payments/{id}/authorization-flow
 pub(super) async fn start_authorization_flow(
+    configuration: web::Data<MockServerConfiguration>,
     storage: web::Data<MockServerStorage>,
     path: web::Path<String>,
     _body: web::Json<StartAuthorizationFlowRequest>, // Just for validation of the body
@@ -133,11 +134,10 @@ pub(super) async fn start_authorization_flow(
                     ..
                 } => {
                     // Bail out if the user preselected an unexpected provider
-                    if ![
-                        MOCK_PROVIDER_ID_REDIRECT,
-                        MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
-                    ]
-                    .contains(&provider_id.as_str())
+                    if !configuration
+                        .payments_providers
+                        .iter()
+                        .any(|p| &p.id == provider_id)
                     {
                         return HttpResponse::BadRequest().finish();
                     }
@@ -147,14 +147,18 @@ pub(super) async fn start_authorization_flow(
                     }
                 }
                 _ => AuthorizationFlowNextAction::ProviderSelection {
-                    providers: vec![Provider {
-                        id: MOCK_PROVIDER_ID_REDIRECT.to_string(),
-                        display_name: None,
-                        icon_uri: None,
-                        logo_uri: None,
-                        bg_color: None,
-                        country_code: None,
-                    }],
+                    providers: configuration
+                        .payments_providers
+                        .iter()
+                        .map(|p| Provider {
+                            id: p.id.clone(),
+                            display_name: None,
+                            icon_uri: None,
+                            logo_uri: None,
+                            bg_color: None,
+                            country_code: None,
+                        })
+                        .collect(),
                 },
             };
 
