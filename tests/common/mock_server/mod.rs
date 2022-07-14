@@ -106,7 +106,7 @@ impl TrueLayerMockServer {
             .collect(),
             payments_providers: vec![
                 Provider {
-                    id: "mock-payments-gb-redirect".into(),
+                    id: MOCK_PROVIDER_ID_REDIRECT.into(),
                     display_name: Some("Mock UK Payments - Redirect Flow".into()),
                     icon_uri: None,
                     logo_uri: None,
@@ -124,7 +124,7 @@ impl TrueLayerMockServer {
                     },
                 },
                 Provider {
-                    id: "mock-payments-de-redirect-additional-input-text".into(),
+                    id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.into(),
                     display_name: Some(
                         "Mock German Payments - Redirect Flow with additional inputs".into(),
                     ),
