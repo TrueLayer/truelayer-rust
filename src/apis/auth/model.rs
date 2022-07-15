@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 /// Credentials used to authenticate against TrueLayer's APIs.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "grant_type", rename_all = "snake_case")]
 pub enum Credentials {
     AuthorizationCode {

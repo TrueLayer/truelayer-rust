@@ -11,6 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 #[derive(Debug, Clone)]
 pub struct Authenticator {
     tx: mpsc::UnboundedSender<oneshot::Sender<Result<AuthenticationResult, Error>>>,
+    pub(crate) client_id: String,
 }
 
 impl Authenticator {
@@ -19,7 +20,7 @@ impl Authenticator {
         let state = AuthenticatorState {
             client,
             auth_url,
-            credentials,
+            credentials: credentials.clone(),
             access_token: None,
         };
 
@@ -35,7 +36,10 @@ impl Authenticator {
             process_loop(state, rx).await;
         });
 
-        Self { tx }
+        Self {
+            tx,
+            client_id: credentials.client_id().into(),
+        }
     }
 
     /// Returns the current access token used for authentication against the TrueLayer APIs.
@@ -173,6 +177,7 @@ mod tests {
     };
 
     // Internal module to provide mockable time for tests
+    #[allow(clippy::declare_interior_mutable_const)]
     pub mod mocked_time {
         use chrono::{DateTime, Utc};
         use std::{
