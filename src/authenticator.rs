@@ -174,6 +174,7 @@ mod tests {
     };
 
     // Internal module to provide mockable time for tests
+    #[allow(clippy::declare_interior_mutable_const)]
     pub mod mocked_time {
         use chrono::{DateTime, Utc};
         use std::{
