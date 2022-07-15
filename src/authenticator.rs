@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 #[derive(Debug, Clone)]
 pub struct Authenticator {
     tx: mpsc::UnboundedSender<oneshot::Sender<Result<AuthenticationResult, Error>>>,
-    pub(crate) credentials: Credentials,
+    pub(crate) client_id: String,
 }
 
 impl Authenticator {
@@ -36,7 +36,10 @@ impl Authenticator {
             process_loop(state, rx).await;
         });
 
-        Self { tx, credentials }
+        Self {
+            tx,
+            client_id: credentials.client_id().into(),
+        }
     }
 
     /// Returns the current access token used for authentication against the TrueLayer APIs.

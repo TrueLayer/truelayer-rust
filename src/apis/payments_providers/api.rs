@@ -35,10 +35,7 @@ impl PaymentsProvidersApi {
                     .join(&format!("/payments-providers/{}", encode(id)))
                     .unwrap(),
             )
-            .query(&[(
-                "client_id",
-                self.inner.authenticator.credentials.client_id(),
-            )])
+            .query(&[("client_id", &self.inner.authenticator.client_id)])
             .send()
             .await
             .map_err(Error::from);
