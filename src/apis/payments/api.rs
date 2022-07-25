@@ -3,9 +3,10 @@ use crate::{
         auth::Token,
         payments::{
             CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
-            StartAuthorizationFlowResponse, SubmitFormActionRequest, SubmitFormActionResponse,
-            SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponse,
-            SubmitProviderSelectionActionRequest, SubmitProviderSelectionActionResponse,
+            StartAuthorizationFlowResponse, SubmitConsentActionResponse, SubmitFormActionRequest,
+            SubmitFormActionResponse, SubmitProviderReturnParametersRequest,
+            SubmitProviderReturnParametersResponse, SubmitProviderSelectionActionRequest,
+            SubmitProviderSelectionActionResponse,
         },
         TrueLayerClientInner,
     },
@@ -13,6 +14,7 @@ use crate::{
     Error,
 };
 use reqwest::Url;
+use serde_json::json;
 use std::sync::Arc;
 use urlencoding::encode;
 use uuid::Uuid;
@@ -122,6 +124,37 @@ impl PaymentsApi {
             )
             .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .json(req)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
+    /// Formally submits the consent provided by the PSU
+    #[tracing::instrument(name = "Submit Consent", skip(self))]
+    pub async fn submit_consent(
+        &self,
+        payment_id: &str,
+    ) -> Result<SubmitConsentActionResponse, Error> {
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/authorization-flow/actions/consent",
+                        encode(payment_id)
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(&json!({}))
             .send()
             .await?
             .json()
@@ -251,9 +284,9 @@ mod tests {
             auth::Credentials,
             payments::{
                 AdditionalInputType, AuthorizationFlowNextAction, AuthorizationFlowResponseStatus,
-                Beneficiary, CountryCode, CreatePaymentUserRequest, Currency, FailureStage,
-                FormSupported, PaymentMethod, PaymentStatus, Provider, ProviderSelection,
-                ProviderSelectionSupported, RedirectSupported,
+                Beneficiary, ConsentSupported, CountryCode, CreatePaymentUserRequest, Currency,
+                FailureStage, FormSupported, PaymentMethod, PaymentStatus, Provider,
+                ProviderSelection, ProviderSelectionSupported, RedirectSupported,
                 SubmitProviderReturnParametersResponseResource, User,
             },
         },
@@ -370,7 +403,8 @@ mod tests {
                 "provider_selection": {},
                 "redirect": {
                     "return_uri": "https://my.return.uri"
-                }
+                },
+                "consent": {},
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "authorization_flow": {
@@ -412,6 +446,7 @@ mod tests {
                             AdditionalInputType::TextWithImage,
                         ],
                     }),
+                    consent: Some(ConsentSupported {}),
                 },
             )
             .await
@@ -544,6 +579,53 @@ mod tests {
                 failure_reason: "mock_reason".to_string()
             }
         );
+        assert!(res
+            .authorization_flow
+            .as_ref()
+            .unwrap()
+            .configuration
+            .is_none());
+        assert_eq!(
+            res.authorization_flow.unwrap().actions.unwrap().next,
+            AuthorizationFlowNextAction::Redirect {
+                uri: "https://my.redirect.uri".to_string(),
+                metadata: None
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_consent() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/payments/{}/authorization-flow/actions/consent",
+                payment_id
+            )))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "authorization_flow": {
+                    "actions": {
+                        "next": {
+                            "type": "redirect",
+                            "uri": "https://my.redirect.uri"
+                        }
+                    }
+                },
+                "status": "authorizing"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api.submit_consent(payment_id).await.unwrap();
+
+        assert_eq!(res.status, AuthorizationFlowResponseStatus::Authorizing);
         assert!(res
             .authorization_flow
             .as_ref()

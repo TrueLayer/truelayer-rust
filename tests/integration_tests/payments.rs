@@ -8,11 +8,12 @@ use truelayer_rust::{
         payments::{
             AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
             AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-            CreatePaymentRequest, CreatePaymentUserRequest, Currency, FailureStage, FormSupported,
-            PaymentMethod, PaymentStatus, ProviderSelection, ProviderSelectionSupported,
-            RedirectSupported, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-            SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
-            SubmitProviderReturnParametersResponseResource, SubmitProviderSelectionActionRequest,
+            ConsentSupported, CreatePaymentRequest, CreatePaymentUserRequest, Currency,
+            FailureStage, FormSupported, PaymentMethod, PaymentStatus, ProviderSelection,
+            ProviderSelectionSupported, RedirectSupported, StartAuthorizationFlowRequest,
+            StartAuthorizationFlowResponse, SubmitFormActionRequest,
+            SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
+            SubmitProviderSelectionActionRequest,
         },
         payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
     },
@@ -258,6 +259,7 @@ impl CreatePaymentScenario {
                             AdditionalInputType::TextWithImage,
                         ],
                     }),
+                    consent: Some(ConsentSupported {}),
                 },
             )
             .await
@@ -313,6 +315,24 @@ impl CreatePaymentScenario {
             status = submit_provider_selection_response.status;
             authorization_flow = submit_provider_selection_response.authorization_flow;
         }
+
+        // Assert that the next action in the auth flow is Consent
+        assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
+        assert!(matches!(
+            authorization_flow,
+            Some(AuthorizationFlow {
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Consent { .. }
+                }),
+                ..
+            })
+        ));
+
+        // Submit consent
+        let submit_consent_response = ctx.client.payments.submit_consent(&res.id).await.unwrap();
+
+        status = submit_consent_response.status;
+        authorization_flow = submit_consent_response.authorization_flow;
 
         if match &self.provider_selection {
             ScenarioProviderSelection::Preselected { provider_id, .. } => provider_id,

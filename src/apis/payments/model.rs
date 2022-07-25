@@ -287,6 +287,9 @@ pub enum AuthorizationFlowNextAction {
         uri: String,
         metadata: Option<RedirectActionMetadata>,
     },
+    Consent {
+        subsequent_action_hint: String,
+    },
     Form {
         inputs: Vec<AdditionalInput>,
     },
@@ -386,6 +389,7 @@ pub enum AdditionalInputImage {
 pub struct AuthorizationFlowConfiguration {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub consent: Option<ConsentSupported>,
     pub form: Option<FormSupported>,
 }
 
@@ -397,6 +401,9 @@ pub struct RedirectSupported {
     pub return_uri: String,
     pub direct_return_uri: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct ConsentSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct FormSupported {
@@ -423,6 +430,7 @@ pub struct User {
 pub struct StartAuthorizationFlowRequest {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub consent: Option<ConsentSupported>,
     pub form: Option<FormSupported>,
 }
 
@@ -440,6 +448,13 @@ pub struct SubmitProviderSelectionActionRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct SubmitProviderSelectionActionResponse {
+    pub authorization_flow: Option<AuthorizationFlow>,
+    #[serde(flatten)]
+    pub status: AuthorizationFlowResponseStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitConsentActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
     pub status: AuthorizationFlowResponseStatus,
