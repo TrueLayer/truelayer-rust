@@ -54,7 +54,7 @@ async fn hpp_link_returns_200() {
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected {
                     filter: None,
-                    preferred_scheme_id: None,
+                    preferred_scheme_ids: None,
                 },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
@@ -143,7 +143,7 @@ impl CreatePaymentScenario {
         let provider_selection = match &self.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected {
                 filter: None,
-                preferred_scheme_id: None,
+                preferred_scheme_ids: None,
             },
             ScenarioProviderSelection::Preselected {
                 provider_id,

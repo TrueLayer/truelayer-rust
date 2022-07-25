@@ -207,7 +207,7 @@ pub struct SettlementRisk {
 pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
-        preferred_scheme_id: Option<String>,
+        preferred_scheme_ids: Option<Vec<String>>,
     },
     Preselected {
         provider_id: String,
