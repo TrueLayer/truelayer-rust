@@ -77,7 +77,7 @@ pub(super) async fn create_payment(
             amount_in_minor: create_payment_request.amount_in_minor,
             currency: create_payment_request.currency.clone(),
             user: user.clone(),
-            payment_method: create_payment_request.payment_method.clone(),
+            payment_method: create_payment_request.payment_method.clone().into(),
             created_at: Utc::now(),
             status: PaymentStatus::AuthorizationRequired,
             metadata: create_payment_request.metadata.clone(),
@@ -141,9 +141,12 @@ pub(super) async fn start_authorization_flow(
                     {
                         return HttpResponse::BadRequest().finish();
                     }
-                    match select_next_action(provider_id, &payment.id) {
-                        Some(action) => action,
-                        None => return HttpResponse::BadRequest().finish(),
+                    AuthorizationFlowNextAction::Consent {
+                        subsequent_action_hint: match provider_id.as_str() {
+                            MOCK_PROVIDER_ID_REDIRECT => "redirect".into(),
+                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => "form".into(),
+                            _ => return HttpResponse::BadRequest().finish(),
+                        },
                     }
                 }
                 _ => AuthorizationFlowNextAction::ProviderSelection {
@@ -195,10 +198,18 @@ pub(super) async fn submit_provider_selection(
         None => return HttpResponse::NotFound().finish(),
     };
 
-    let next_action = match select_next_action(&body.provider_id, &payment.id) {
-        Some(action) => action,
-        None => return HttpResponse::BadRequest().finish(),
-    };
+    // Update provider selection
+    if let PaymentMethod::BankTransfer {
+        provider_selection:
+            ProviderSelection::UserSelected {
+                ref mut provider_id,
+                ..
+            },
+        ..
+    } = payment.payment_method
+    {
+        *provider_id = Some(body.provider_id.clone());
+    }
 
     match payment.status {
         PaymentStatus::Authorizing {
@@ -213,7 +224,15 @@ pub(super) async fn submit_provider_selection(
         } => {
             let authorization_flow = AuthorizationFlow {
                 configuration: None,
-                actions: Some(AuthorizationFlowActions { next: next_action }),
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Consent {
+                        subsequent_action_hint: match body.provider_id.as_str() {
+                            MOCK_PROVIDER_ID_REDIRECT => "redirect".into(),
+                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => "form".into(),
+                            _ => return HttpResponse::BadRequest().finish(),
+                        },
+                    },
+                }),
             };
             payment.status = PaymentStatus::Authorizing {
                 authorization_flow: authorization_flow.clone(),
@@ -228,15 +247,21 @@ pub(super) async fn submit_provider_selection(
     }
 }
 
-fn select_next_action(provider_id: &str, payment_id: &str) -> Option<AuthorizationFlowNextAction> {
-    if provider_id == MOCK_PROVIDER_ID_REDIRECT {
-        return Some(AuthorizationFlowNextAction::Redirect {
-            uri: format!("{}{}", MOCK_REDIRECT_URI, payment_id),
+fn select_next_action(payment: &Payment) -> Option<AuthorizationFlowNextAction> {
+    let provider_id = match &payment.payment_method {
+        PaymentMethod::BankTransfer {
+            provider_selection, ..
+        } => match provider_selection {
+            ProviderSelection::UserSelected { provider_id, .. } => provider_id.clone()?,
+            ProviderSelection::Preselected { provider_id, .. } => provider_id.clone(),
+        },
+    };
+    match provider_id.as_str() {
+        MOCK_PROVIDER_ID_REDIRECT => Some(AuthorizationFlowNextAction::Redirect {
+            uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
             metadata: None,
-        });
-    }
-    if provider_id == MOCK_PROVIDER_ID_ADDITIONAL_INPUTS {
-        return Some(AuthorizationFlowNextAction::Form {
+        }),
+        MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => Some(AuthorizationFlowNextAction::Form {
             inputs: vec![
                 AdditionalInput::Text {
                     id: "psu-branch-code".to_string(),
@@ -299,9 +324,56 @@ fn select_next_action(provider_id: &str, payment_id: &str) -> Option<Authorizati
                     description: None,
                 },
             ],
-        });
+        }),
+        _ => None,
     }
-    None
+}
+
+/// POST /payments/{id}/authorization-flow/consent
+pub(super) async fn submit_consent(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let id = path.into_inner();
+
+    // Extract the payment from its id
+    let mut map = storage.write().unwrap();
+    let payment = match map.payments.get_mut(&id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    let next_action = match select_next_action(payment) {
+        Some(action) => action,
+        None => return HttpResponse::BadRequest().finish(),
+    };
+
+    match payment.status {
+        PaymentStatus::Authorizing {
+            authorization_flow:
+                AuthorizationFlow {
+                    actions:
+                        Some(AuthorizationFlowActions {
+                            next: AuthorizationFlowNextAction::Consent { .. },
+                        }),
+                    ..
+                },
+        } => {
+            let authorization_flow = AuthorizationFlow {
+                configuration: None,
+                actions: Some(AuthorizationFlowActions { next: next_action }),
+            };
+            payment.status = PaymentStatus::Authorizing {
+                authorization_flow: authorization_flow.clone(),
+            };
+
+            HttpResponse::Ok().json(StartAuthorizationFlowResponse {
+                authorization_flow: Some(authorization_flow),
+                status: AuthorizationFlowResponseStatus::Authorizing,
+            })
+        }
+        _ => HttpResponse::BadRequest().finish(),
+    }
 }
 
 /// POST /payments/{id}/authorization-flow/form

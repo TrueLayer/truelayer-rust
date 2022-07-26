@@ -9,9 +9,9 @@ use truelayer_rust::{
             AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
             AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
             ConsentSupported, CreatePaymentRequest, CreatePaymentUserRequest, Currency,
-            FailureStage, FormSupported, PaymentMethod, PaymentStatus, ProviderSelection,
-            ProviderSelectionSupported, RedirectSupported, StartAuthorizationFlowRequest,
-            StartAuthorizationFlowResponse, SubmitFormActionRequest,
+            FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
+            ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+            StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
             SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
             SubmitProviderSelectionActionRequest,
         },
@@ -52,8 +52,8 @@ async fn hpp_link_returns_200() {
         .create(&CreatePaymentRequest {
             amount_in_minor: 1,
             currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
+            payment_method: PaymentMethodRequest::BankTransfer {
+                provider_selection: ProviderSelectionRequest::UserSelected { filter: None },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
@@ -140,7 +140,7 @@ impl CreatePaymentScenario {
 
         let provider_selection = match &self.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => {
-                ProviderSelection::UserSelected { filter: None }
+                ProviderSelectionRequest::UserSelected { filter: None }
             }
             ScenarioProviderSelection::Preselected {
                 provider_id,
@@ -162,7 +162,7 @@ impl CreatePaymentScenario {
 
                 assert!(available_schemes.iter().any(|s| &s.id == scheme_id));
 
-                ProviderSelection::Preselected {
+                ProviderSelectionRequest::Preselected {
                     provider_id: provider_id.clone(),
                     scheme_id: scheme_id.clone(),
                     remitter: None,
@@ -174,7 +174,7 @@ impl CreatePaymentScenario {
         let create_payment_request = CreatePaymentRequest {
             amount_in_minor: 1,
             currency: self.currency.clone(),
-            payment_method: PaymentMethod::BankTransfer {
+            payment_method: PaymentMethodRequest::BankTransfer {
                 provider_selection,
                 beneficiary: match self.beneficiary {
                     ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
@@ -228,7 +228,7 @@ impl CreatePaymentScenario {
         assert_eq!(payment.user.phone, None);
         assert_eq!(
             payment.payment_method,
-            create_payment_request.payment_method
+            create_payment_request.payment_method.into()
         );
         assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
         assert_eq!(

@@ -12,9 +12,31 @@ use std::{
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
-    pub payment_method: PaymentMethod,
+    pub payment_method: PaymentMethodRequest,
     pub user: CreatePaymentUserRequest,
     pub metadata: Option<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PaymentMethodRequest {
+    BankTransfer {
+        provider_selection: ProviderSelectionRequest,
+        beneficiary: Beneficiary,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProviderSelectionRequest {
+    UserSelected {
+        filter: Option<ProviderFilter>,
+    },
+    Preselected {
+        provider_id: String,
+        scheme_id: String,
+        remitter: Option<Remitter>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -165,6 +187,20 @@ pub enum PaymentMethod {
     },
 }
 
+impl From<PaymentMethodRequest> for PaymentMethod {
+    fn from(payment_method: PaymentMethodRequest) -> Self {
+        match payment_method {
+            PaymentMethodRequest::BankTransfer {
+                provider_selection,
+                beneficiary,
+            } => PaymentMethod::BankTransfer {
+                provider_selection: provider_selection.into(),
+                beneficiary,
+            },
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Beneficiary {
@@ -207,12 +243,35 @@ pub struct SettlementRisk {
 pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
+        provider_id: Option<String>,
+        scheme_id: Option<String>,
     },
     Preselected {
         provider_id: String,
         scheme_id: String,
         remitter: Option<Remitter>,
     },
+}
+
+impl From<ProviderSelectionRequest> for ProviderSelection {
+    fn from(provider_selection: ProviderSelectionRequest) -> Self {
+        match provider_selection {
+            ProviderSelectionRequest::UserSelected { filter } => ProviderSelection::UserSelected {
+                filter,
+                provider_id: None,
+                scheme_id: None,
+            },
+            ProviderSelectionRequest::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            } => ProviderSelection::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
