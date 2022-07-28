@@ -143,7 +143,10 @@ impl CreatePaymentScenario {
         let provider_selection = match &self.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected {
                 filter: None,
-                preferred_scheme_ids: None,
+                preferred_scheme_ids: match self.currency {
+                    Currency::Gbp => Some(vec!["faster_payments_service".into()]),
+                    Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
+                },
             },
             ScenarioProviderSelection::Preselected {
                 provider_id,
