@@ -60,7 +60,7 @@
 //!         amount_in_minor: 100,
 //!         currency: Currency::Gbp,
 //!         payment_method: PaymentMethod::BankTransfer {
-//!             provider_selection: ProviderSelection::UserSelected { filter: None },
+//!             provider_selection: ProviderSelection::UserSelected { filter: None, preferred_scheme_ids: None },
 //!             beneficiary: Beneficiary::MerchantAccount {
 //!                 merchant_account_id: "some-merchant-account-id".to_string(),
 //!                 account_holder_name: None,

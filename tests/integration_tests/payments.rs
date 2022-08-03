@@ -52,7 +52,10 @@ async fn hpp_link_returns_200() {
             amount_in_minor: 1,
             currency: Currency::Gbp,
             payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected { filter: None },
+                provider_selection: ProviderSelection::UserSelected {
+                    filter: None,
+                    preferred_scheme_ids: None,
+                },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
@@ -138,9 +141,13 @@ impl CreatePaymentScenario {
         let ctx = TestContext::start().await;
 
         let provider_selection = match &self.provider_selection {
-            ScenarioProviderSelection::UserSelected { .. } => {
-                ProviderSelection::UserSelected { filter: None }
-            }
+            ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected {
+                filter: None,
+                preferred_scheme_ids: match self.currency {
+                    Currency::Gbp => Some(vec!["faster_payments_service".into()]),
+                    Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
+                },
+            },
             ScenarioProviderSelection::Preselected {
                 provider_id,
                 scheme_id,
