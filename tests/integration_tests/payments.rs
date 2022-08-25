@@ -179,7 +179,7 @@ impl CreatePaymentScenario {
         // Create a payment
         let create_payment_request = CreatePaymentRequest {
             amount_in_minor: 1,
-            currency: self.currency.clone(),
+            currency: self.currency,
             payment_method: PaymentMethod::BankTransfer {
                 provider_selection,
                 beneficiary: match self.beneficiary {

@@ -105,7 +105,7 @@ async fn run() -> anyhow::Result<()> {
                 &merchant_account.id,
                 &SetupSweepingRequest {
                     max_amount_in_minor: amount,
-                    currency: merchant_account.currency.clone(),
+                    currency: merchant_account.currency,
                     frequency: frequency.clone(),
                 },
             )

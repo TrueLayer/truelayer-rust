@@ -75,7 +75,7 @@ pub(super) async fn create_payment(
         Payment {
             id: id.clone(),
             amount_in_minor: create_payment_request.amount_in_minor,
-            currency: create_payment_request.currency.clone(),
+            currency: create_payment_request.currency,
             user: user.clone(),
             payment_method: create_payment_request.payment_method.clone(),
             created_at: Utc::now(),
@@ -544,7 +544,7 @@ pub(super) async fn create_payout(
             id: payout_id.clone(),
             merchant_account_id: request.merchant_account_id.clone(),
             amount_in_minor: request.amount_in_minor,
-            currency: request.currency.clone(),
+            currency: request.currency,
             beneficiary: request.beneficiary.clone(),
             created_at: Utc::now(),
             status: PayoutStatus::Pending,

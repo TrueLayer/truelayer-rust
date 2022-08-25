@@ -123,7 +123,7 @@ pub enum PaymentStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
     Gbp,

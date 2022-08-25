@@ -17,10 +17,11 @@ pub struct Authenticator {
 impl Authenticator {
     /// Starts a new authenticator with the given initial credentials.
     pub fn new(client: ClientWithMiddleware, auth_url: Url, credentials: Credentials) -> Self {
+        let client_id = credentials.client_id().to_string();
         let state = AuthenticatorState {
             client,
             auth_url,
-            credentials: credentials.clone(),
+            credentials,
             access_token: None,
         };
 
@@ -36,10 +37,7 @@ impl Authenticator {
             process_loop(state, rx).await;
         });
 
-        Self {
-            tx,
-            client_id: credentials.client_id().into(),
-        }
+        Self { tx, client_id }
     }
 
     /// Returns the current access token used for authentication against the TrueLayer APIs.
