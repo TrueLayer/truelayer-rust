@@ -3,8 +3,9 @@ use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
-            Beneficiary, CreatePaymentRequest, CreatePaymentUserRequest, Currency,
-            PaymentMethodRequest, ProviderSelectionRequest,
+            BankTransferBuilder, Beneficiary, CreatePaymentRequestBuilder,
+            CreatePaymentUserRequest, Currency, NewUser, PaymentMethodRequest, ProviderSelection,
+            UserSelectedBuilderRequest,
         },
     },
     client::Environment,
@@ -63,29 +64,29 @@ async fn run() -> anyhow::Result<()> {
         .context("Cannot find a GBP merchant account")?;
 
     // Create a new outgoing payment
-    let res = tl
-        .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 100,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethodRequest::BankTransfer {
-                provider_selection: ProviderSelectionRequest::UserSelected {
-                    filter: None,
-                    scheme_selection: None,
-                },
-                beneficiary: Beneficiary::MerchantAccount {
+    let create_payment_request = CreatePaymentRequestBuilder::default()
+        .amount_in_minor(100)
+        .currency(Currency::Gbp)
+        .payment_method(PaymentMethod::BankTransfer(
+            BankTransferBuilder::default()
+                .provider_selection(ProviderSelection::UserSelected(
+                    UserSelectedBuilder::default().build().unwrap(),
+                ))
+                .beneficiary(Beneficiary::MerchantAccount {
                     merchant_account_id: merchant_account.id,
                     account_holder_name: None,
-                },
-            },
-            user: CreatePaymentUserRequest::NewUser {
-                name: Some("Some One".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-            metadata: None,
-        })
-        .await?;
+                })
+                .build()
+                .unwrap(),
+        ))
+        .user(CreatePaymentUserRequest::NewUser(NewUser {
+            name: Some("Some One".to_string()),
+            email: Some("some.one@email.com".to_string()),
+            phone: None,
+        }))
+        .build()
+        .unwrap();
+    let res = tl.payments.create(&create_payment_request).await?;
 
     tracing::info!("Created new payment: {}", res.id);
 

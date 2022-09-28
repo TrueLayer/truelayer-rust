@@ -6,15 +6,21 @@ use retry_policies::policies::ExponentialBackoff;
 use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
 use truelayer_rust::{
-    apis::payments::{
-        AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-        ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
-        Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
-        ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
-        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
-        SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
-        SubmitProviderSelectionActionRequest,
+    apis::{
+        merchant_accounts::ListPaymentSourcesRequest,
+        payments::{
+            AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
+            AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransferBuilder,
+            Beneficiary, CreatePaymentRequestBuilder, CreatePaymentUserRequest, Currency,
+            FailureStage, FormSupportedBuilder, NewUser, PaymentMethod, PaymentStatus,
+            PreselectedBuilder, ProviderSelection, ProviderSelectionSupportedBuilder,
+            RedirectSupportedBuilder, StartAuthorizationFlowRequestBuilder,
+            StartAuthorizationFlowResponse, SubmitFormActionRequestBuilder,
+            SubmitProviderReturnParametersRequestBuilder,
+            SubmitProviderReturnParametersResponseResource,
+            SubmitProviderSelectionActionRequestBuilder, UserSelectedBuilder,
+        },
+        payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -45,29 +51,32 @@ async fn hpp_link_returns_200() {
     let ctx = TestContext::start().await;
 
     // Create a payment
+    let create_payment_request = CreatePaymentRequestBuilder::default()
+        .amount_in_minor(1)
+        .currency(Currency::Gbp)
+        .payment_method(PaymentMethod::BankTransfer(
+            BankTransferBuilder::default()
+                .provider_selection(ProviderSelection::UserSelected(
+                    UserSelectedBuilder::default().build().unwrap(),
+                ))
+                .beneficiary(Beneficiary::MerchantAccount {
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                    account_holder_name: None,
+                })
+                .build()
+                .unwrap(),
+        ))
+        .user(CreatePaymentUserRequest::NewUser(NewUser {
+            name: Some("someone".to_string()),
+            email: Some("some.one@email.com".to_string()),
+            phone: None,
+        }))
+        .build()
+        .unwrap();
     let res = ctx
         .client
         .payments
-        .create(&CreatePaymentRequest {
-            amount_in_minor: 1,
-            currency: Currency::Gbp,
-            payment_method: PaymentMethodRequest::BankTransfer {
-                provider_selection: ProviderSelectionRequest::UserSelected {
-                    filter: None,
-                    scheme_selection: None,
-                },
-                beneficiary: Beneficiary::MerchantAccount {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    account_holder_name: None,
-                },
-            },
-            user: CreatePaymentUserRequest::NewUser {
-                name: Some("someone".to_string()),
-                email: Some("some.one@email.com".to_string()),
-                phone: None,
-            },
-            metadata: None,
-        })
+        .create(&create_payment_request)
         .await
         .unwrap();
 
@@ -140,12 +149,16 @@ impl CreatePaymentScenario {
         let ctx = TestContext::start().await;
 
         let provider_selection = match &self.provider_selection {
-            ScenarioProviderSelection::UserSelected { .. } => {
-                ProviderSelectionRequest::UserSelected {
-                    filter: None,
-                    scheme_selection: None,
-                }
-            }
+            ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected(
+                UserSelectedBuilder::default()
+                    .preferred_scheme_ids(match self.currency {
+                        Currency::Gbp => Some(vec!["faster_payments_service".into()]),
+                        Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
+                        _ => unimplemented!(),
+                    })
+                    .build()
+                    .unwrap(),
+            ),
             ScenarioProviderSelection::Preselected {
                 provider_id,
                 scheme_id,
@@ -166,41 +179,47 @@ impl CreatePaymentScenario {
 
                 assert!(available_schemes.iter().any(|s| &s.id == scheme_id));
 
-                ProviderSelectionRequest::Preselected {
-                    provider_id: provider_id.clone(),
-                    scheme_id: scheme_id.clone(),
-                    remitter: None,
-                }
+                ProviderSelectionRequest::Preselected(
+                    PreselectedBuilder::default()
+                        .provider_id(provider_id.clone())
+                        .scheme_id(scheme_id.clone())
+                        .build()
+                        .unwrap(),
+                )
             }
         };
 
         // Create a payment
-        let create_payment_request = CreatePaymentRequest {
-            amount_in_minor: 1,
-            currency: self.currency.clone(),
-            payment_method: PaymentMethodRequest::BankTransfer {
-                provider_selection,
-                beneficiary: match self.beneficiary {
-                    ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
-                        merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                        account_holder_name: None,
+        let create_payment_request = CreatePaymentRequestBuilder::default()
+            .amount_in_minor(1)
+            .currency(self.currency.clone())
+            .payment_method(PaymentMethodRequest::BankTransfer(
+                BankTransferBuilder::default()
+                    .provider_selection(provider_selection)
+                    .beneficiary(match self.beneficiary {
+                        ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
+                            merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                            account_holder_name: None,
+                        },
+                        ScenarioBeneficiary::OpenLoop {
+                            ref account_identifier,
+                        } => Beneficiary::ExternalAccount {
+                            account_holder_name: "Account Holder".to_string(),
+                            account_identifier: account_identifier.clone(),
+                            reference: "Reference".to_string(),
+                        },
                     },
-                    ScenarioBeneficiary::OpenLoop {
-                        ref account_identifier,
-                    } => Beneficiary::ExternalAccount {
-                        account_holder_name: "Account Holder".to_string(),
-                        account_identifier: account_identifier.clone(),
-                        reference: "Reference".to_string(),
-                    },
-                },
-            },
-            user: CreatePaymentUserRequest::NewUser {
+                    .build()
+                    .unwrap(),
+            ))
+            .user(CreatePaymentUserRequest::NewUser(NewUser {
                 name: Some("someone".to_string()),
                 email: Some("some.one@email.com".to_string()),
                 phone: None,
-            },
-            metadata: Some(HashMap::from([("some".into(), "metadata".into())])),
-        };
+            }))
+            .metadata(Some(HashMap::from([("some".into(), "metadata".into())])))
+            .build()
+            .unwrap();
         let res = ctx
             .client
             .payments
@@ -242,31 +261,42 @@ impl CreatePaymentScenario {
         );
 
         // Start authorization flow
+        let start_authorization_flow_request = StartAuthorizationFlowRequestBuilder::default()
+            .provider_selection(Some(
+                ProviderSelectionSupportedBuilder::default()
+                    .build()
+                    .unwrap(),
+            ))
+            .redirect(Some(
+                RedirectSupportedBuilder::default()
+                    .return_uri(MOCK_RETURN_URI.to_string())
+                    .direct_return_uri(
+                        (self.redirect_flow == RedirectFlow::DirectReturn)
+                            .then(|| MOCK_RETURN_URI.to_string()),
+                    )
+                    .build()
+                    .unwrap(),
+            ))
+            .form(Some(
+                FormSupportedBuilder::default()
+                    .input_types(vec![
+                        AdditionalInputType::Text,
+                        AdditionalInputType::Select,
+                        AdditionalInputType::TextWithImage,
+                    ])
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
         let StartAuthorizationFlowResponse {
             mut authorization_flow,
             mut status,
         } = ctx
             .client
             .payments
-            .start_authorization_flow(
-                &res.id,
-                &StartAuthorizationFlowRequest {
-                    provider_selection: Some(ProviderSelectionSupported {}),
-                    redirect: Some(RedirectSupported {
-                        return_uri: MOCK_RETURN_URI.to_string(),
-                        direct_return_uri: (self.redirect_flow == RedirectFlow::DirectReturn)
-                            .then(|| MOCK_RETURN_URI.to_string()),
-                    }),
-                    form: Some(FormSupported {
-                        input_types: vec![
-                            AdditionalInputType::Text,
-                            AdditionalInputType::Select,
-                            AdditionalInputType::TextWithImage,
-                        ],
-                    }),
+            .start_authorization_flow(&res.id, &start_authorization_flow_request)
                     consent: Some(ConsentSupported {}),
-                },
-            )
             .await
             .unwrap();
 
@@ -310,9 +340,10 @@ impl CreatePaymentScenario {
                 .payments
                 .submit_provider_selection(
                     &res.id,
-                    &SubmitProviderSelectionActionRequest {
-                        provider_id: provider_id.to_string(),
-                    },
+                    &SubmitProviderSelectionActionRequestBuilder::default()
+                        .provider_id(provider_id.to_string())
+                        .build()
+                        .unwrap(),
                 )
                 .await
                 .unwrap();
@@ -383,13 +414,14 @@ impl CreatePaymentScenario {
                 .payments
                 .submit_form_inputs(
                     &res.id,
-                    &SubmitFormActionRequest {
-                        inputs: HashMap::from([
+                    &SubmitFormActionRequestBuilder::default()
+                        .inputs(HashMap::from([
                             ("psu-branch-code".to_string(), "123".to_string()),
                             ("psu-account-number".to_string(), "1234567".to_string()),
                             ("psu-sub-account".to_string(), "01".to_string()),
-                        ]),
-                    },
+                        ]))
+                        .build()
+                        .unwrap(),
                 )
                 .await
                 .unwrap();
@@ -445,10 +477,13 @@ impl CreatePaymentScenario {
             let submit_res = ctx
                 .client
                 .payments
-                .submit_provider_return_parameters(&SubmitProviderReturnParametersRequest {
-                    query: provider_return_uri.query().unwrap_or("").to_string(),
-                    fragment: provider_return_uri.fragment().unwrap_or("").to_string(),
-                })
+                .submit_provider_return_parameters(
+                    &SubmitProviderReturnParametersRequestBuilder::default()
+                        .query(provider_return_uri.query().unwrap_or("").to_string())
+                        .fragment(provider_return_uri.fragment().unwrap_or("").to_string())
+                        .build()
+                        .unwrap(),
+                )
                 .await
                 .unwrap();
 
@@ -500,6 +535,59 @@ impl CreatePaymentScenario {
                     } if failure_stage == expected_failure_stage && failure_reason == expected_failure_reason
                 ));
             }
+        }
+
+        // Test a closed loop payout for the payment we just created
+        if self.make_closed_loop_payout {
+            // Get the payment source for the user created by this payment
+            let payment_source = retry(Duration::from_secs(60), || async {
+                ctx.client
+                    .merchant_accounts
+                    .list_payment_sources(
+                        &ctx.merchant_account_gbp_id,
+                        &ListPaymentSourcesRequest {
+                            user_id: res.user.id.clone(),
+                        },
+                    )
+                    .await
+                    .unwrap()
+                    .first()
+                    .cloned()
+            })
+            .await
+            .expect("Payment source failed to appear");
+
+            // Create a payout against this payment source
+            let create_payout_response = ctx
+                .client
+                .payouts
+                .create(&CreatePayoutRequest {
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                    amount_in_minor: 1,
+                    currency: Currency::Gbp,
+                    beneficiary: PayoutBeneficiary::PaymentSource {
+                        user_id: res.user.id,
+                        payment_source_id: payment_source.id,
+                        reference: "rust-sdk-test".to_string(),
+                    },
+                })
+                .await
+                .unwrap();
+
+            // Wait until the payout is executed
+            let payout = create_payout_response
+                .poll_until_terminal_state(
+                    &ctx.client,
+                    PollOptions::default().with_retry_policy(
+                        ExponentialBackoff::builder()
+                            .build_with_total_retry_duration(Duration::from_secs(60)),
+                    ),
+                )
+                .await
+                .unwrap();
+
+            // Assert that it succeeded
+            assert!(matches!(payout.status, PayoutStatus::Executed { .. }));
         }
     }
 }

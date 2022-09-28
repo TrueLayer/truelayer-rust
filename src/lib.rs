@@ -54,25 +54,31 @@
 //! # async fn main() -> Result<(), Error> {
 //! # let tl: TrueLayerClient = unreachable!();
 //! #
+//! let create_payment_request = CreatePaymentRequestBuilder::default()
+//!     .amount_in_minor(100)
+//!     .currency(Currency::Gbp)
+//!     .payment_method(PaymentMethod::BankTransfer (
+//!         BankTransferBuilder::default()
+//!             .provider_selection(ProviderSelection::UserSelected (
+//!                 UserSelectedBuilder::default().build().unwrap(),
+//!         ))
+//!         .beneficiary(Beneficiary::MerchantAccount {
+//!             merchant_account_id: "some-merchant-account-id".to_string(),
+//!             account_holder_name: None,
+//!         })
+//!         .build()
+//!         .unwrap()
+//!     ))
+//!     .user(CreatePaymentUserRequest::NewUser(NewUser {
+//!         name: Some("Some One".to_string()),
+//!         email: Some("some.one@email.com".to_string()),
+//!         phone: None,
+//!     }))
+//!     .build()
+//!     .unwrap();
 //! let res = tl
 //!     .payments
-//!     .create(&CreatePaymentRequest {
-//!         amount_in_minor: 100,
-//!         currency: Currency::Gbp,
-//!         payment_method: PaymentMethodRequest::BankTransfer {
-//!             provider_selection: ProviderSelectionRequest::UserSelected { filter: None, scheme_selection: None },
-//!             beneficiary: Beneficiary::MerchantAccount {
-//!                 merchant_account_id: "some-merchant-account-id".to_string(),
-//!                 account_holder_name: None,
-//!             },
-//!         },
-//!         user: CreatePaymentUserRequest::NewUser {
-//!             name: Some("Some One".to_string()),
-//!             email: Some("some.one@email.com".to_string()),
-//!             phone: None,
-//!         },
-//!         metadata: None
-//!     })
+//!     .create(&create_payment_request)
 //!     .await?;
 //!
 //! println!("Created new payment: {}", res.id);

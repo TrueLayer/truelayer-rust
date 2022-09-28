@@ -2,41 +2,47 @@ use crate::{apis::auth::Token, pollable::IsInTerminalState, Error, Pollable, Tru
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
     pub payment_method: PaymentMethodRequest,
     pub user: CreatePaymentUserRequest,
+    #[builder(default)]
     pub metadata: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PaymentMethodRequest {
-    BankTransfer {
-        provider_selection: ProviderSelectionRequest,
-        beneficiary: Beneficiary,
-    },
+    BankTransfer(BankTransferRequest),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct BankTransferRequest {
+    pub provider_selection: ProviderSelectionRequest,
+    pub beneficiary: Beneficiary,
 }
 
 impl From<PaymentMethod> for PaymentMethodRequest {
     /// Builds a new payment method request configuration from an existing PaymentMethod
     fn from(p: PaymentMethod) -> Self {
         match p {
-            PaymentMethod::BankTransfer {
+            PaymentMethod::BankTransfer(BankTransfer {
                 provider_selection,
                 beneficiary,
-            } => PaymentMethodRequest::BankTransfer {
+            }) => PaymentMethodRequest::BankTransfer(BankTransferRequest {
                 provider_selection: provider_selection.into(),
                 beneficiary,
-            },
+            }),
         }
     }
 }
@@ -44,38 +50,44 @@ impl From<PaymentMethod> for PaymentMethodRequest {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProviderSelectionRequest {
-    UserSelected {
-        filter: Option<ProviderFilter>,
-        scheme_selection: Option<SchemeSelection>,
-    },
-    Preselected {
-        provider_id: String,
-        scheme_id: String,
-        remitter: Option<Remitter>,
-    },
+    UserSelected(UserSelectedRequest),
+    Preselected(PreselectedRequest),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct UserSelectedRequest {
+    pub filter: Option<ProviderFilter>,
+    pub scheme_selection: Option<SchemeSelection>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct PreselectedRequest {
+    pub provider_id: String,
+    pub scheme_id: String,
+    pub remitter: Option<Remitter>,
 }
 
 impl From<ProviderSelection> for ProviderSelectionRequest {
     /// Builds a new ProviderSelectionRequest configuration from an existing ProviderSelection
     fn from(p: ProviderSelection) -> Self {
         match p {
-            ProviderSelection::UserSelected {
+            ProviderSelection::UserSelected(UserSelected {
                 filter,
                 scheme_selection,
                 ..
-            } => ProviderSelectionRequest::UserSelected {
+            }) => ProviderSelectionRequest::UserSelected(UserSelectedRequest {
                 filter,
                 scheme_selection,
-            },
-            ProviderSelection::Preselected {
+            }),
+            ProviderSelection::Preselected(Preselected {
                 provider_id,
                 scheme_id,
                 remitter,
-            } => ProviderSelectionRequest::Preselected {
+            }) => ProviderSelectionRequest::Preselected(PreselectedRequest {
                 provider_id,
                 scheme_id,
                 remitter,
-            },
+            }),
         }
     }
 }
@@ -83,14 +95,22 @@ impl From<ProviderSelection> for ProviderSelectionRequest {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum CreatePaymentUserRequest {
-    ExistingUser {
-        id: String,
-    },
-    NewUser {
-        name: Option<String>,
-        email: Option<String>,
-        phone: Option<String>,
-    },
+    ExistingUser(ExistingUser),
+    NewUser(NewUser),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct ExistingUser {
+    pub id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct NewUser {
+    pub name: Option<String>,
+    #[builder(default)]
+    pub email: Option<String>,
+    #[builder(default)]
+    pub phone: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -171,6 +191,7 @@ impl IsInTerminalState for Payment {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum PaymentStatus {
     AuthorizationRequired,
     Authorizing {
@@ -201,6 +222,7 @@ pub enum PaymentStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
+#[non_exhaustive]
 pub enum Currency {
     Gbp,
     Eur,
@@ -217,6 +239,7 @@ impl Display for Currency {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum FailureStage {
     AuthorizationRequired,
     Authorizing,
@@ -234,11 +257,16 @@ pub struct PaymentSource {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum PaymentMethod {
-    BankTransfer {
-        provider_selection: ProviderSelection,
-        beneficiary: Beneficiary,
-    },
+    BankTransfer(BankTransfer),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
+pub struct BankTransfer {
+    pub provider_selection: ProviderSelection,
+    pub beneficiary: Beneficiary,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -257,6 +285,7 @@ pub enum Beneficiary {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AccountIdentifier {
     SortCodeAccountNumber {
         sort_code: String,
@@ -281,20 +310,34 @@ pub struct SettlementRisk {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProviderSelection {
-    UserSelected {
-        filter: Option<ProviderFilter>,
-        scheme_selection: Option<SchemeSelection>,
-        provider_id: Option<String>,
-        scheme_id: Option<String>,
-    },
-    Preselected {
-        provider_id: String,
-        scheme_id: String,
-        remitter: Option<Remitter>,
-    },
+    UserSelected(UserSelected),
+    Preselected(Preselected),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
+pub struct UserSelected {
+    #[builder(default)]
+    pub filter: Option<ProviderFilter>,
+    #[builder(default)]
+    scheme_selection: Option<SchemeSelection>,
+    #[builder(setter(skip))]
+    pub provider_id: Option<String>,
+    #[builder(setter(skip))]
+    pub scheme_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
+pub struct Preselected {
+    pub provider_id: String,
+    pub scheme_id: String,
+    #[builder(default)]
+    pub remitter: Option<Remitter>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[non_exhaustive]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SchemeSelection {
     InstantOnly { allow_remitter_fee: Option<bool> },
@@ -303,11 +346,13 @@ pub enum SchemeSelection {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Remitter {
-    pub account_holder_name: Option<String>,
-    pub account_identifier: Option<AccountIdentifier>,
+    pub account_holder_name: String,
+    pub account_identifier: AccountIdentifier,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder, Default)]
+#[builder(default)]
+#[non_exhaustive]
 pub struct ProviderFilter {
     pub countries: Option<Vec<CountryCode>>,
     pub release_channel: Option<ReleaseChannel>,
@@ -318,6 +363,7 @@ pub struct ProviderFilter {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
+#[non_exhaustive]
 pub enum CountryCode {
     DE,
     ES,
@@ -365,6 +411,7 @@ pub struct AuthorizationFlowActions {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AuthorizationFlowNextAction {
     ProviderSelection {
         providers: Vec<Provider>,
@@ -407,6 +454,7 @@ pub enum RedirectActionMetadata {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AdditionalInput {
     Text {
         id: String,
@@ -448,6 +496,7 @@ pub struct AdditionalInputDisplayText {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AdditionalInputFormat {
     AccountNumber,
     Alphabetical,
@@ -473,6 +522,7 @@ pub struct AdditionalInputOption {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AdditionalInputImage {
     Uri { uri: String },
     Base64 { data: String, media_type: String },
@@ -486,16 +536,19 @@ pub struct AuthorizationFlowConfiguration {
     pub form: Option<FormSupported>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct ProviderSelectionSupported {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct RedirectSupported {
     pub return_uri: String,
     pub direct_return_uri: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct ConsentSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -505,6 +558,7 @@ pub struct FormSupported {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AdditionalInputType {
     Text,
     Select,
@@ -519,10 +573,14 @@ pub struct User {
     pub phone: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct StartAuthorizationFlowRequest {
+    #[builder(default)]
     pub provider_selection: Option<ProviderSelectionSupported>,
+    #[builder(default)]
     pub redirect: Option<RedirectSupported>,
+    #[builder(default)]
     pub consent: Option<ConsentSupported>,
     pub form: Option<FormSupported>,
 }
@@ -534,7 +592,8 @@ pub struct StartAuthorizationFlowResponse {
     pub status: AuthorizationFlowResponseStatus,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct SubmitProviderSelectionActionRequest {
     pub provider_id: String,
 }
@@ -546,7 +605,8 @@ pub struct SubmitProviderSelectionActionResponse {
     pub status: AuthorizationFlowResponseStatus,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct SubmitConsentActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
@@ -575,7 +635,8 @@ pub enum AuthorizationFlowResponseStatus {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[non_exhaustive]
 pub struct SubmitProviderReturnParametersRequest {
     pub query: String,
     pub fragment: String,

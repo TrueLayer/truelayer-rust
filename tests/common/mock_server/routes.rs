@@ -17,12 +17,11 @@ use truelayer_rust::apis::{
         refunds::{CreateRefundRequest, Refund, RefundStatus},
         AccountIdentifier, AdditionalInput, AdditionalInputDisplayText, AdditionalInputFormat,
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
-        CreatePaymentUserRequest, Currency, FailureStage, Payment, PaymentMethod, PaymentSource,
-        PaymentStatus, Provider, ProviderSelection, ProviderSelectionRequest,
+        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransfer,
+        CreatePaymentRequest, CreatePaymentUserRequest, Currency, ExistingUser, NewUser, Payment,
+        PaymentMethod, PaymentSource, PaymentStatus, Preselected, Provider, ProviderSelection,
         StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
-        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest,
-        SubsequentAction, User,
+        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest, User,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -60,13 +59,13 @@ pub(super) async fn create_payment(
 ) -> HttpResponse {
     let id = Uuid::new_v4().to_string();
     let user = match create_payment_request.user.clone() {
-        CreatePaymentUserRequest::NewUser { name, email, phone } => User {
+        CreatePaymentUserRequest::NewUser(NewUser { name, email, phone }) => User {
             id: "payment-source-user-id".to_string(),
             name,
             email,
             phone,
         },
-        CreatePaymentUserRequest::ExistingUser { id } => User {
+        CreatePaymentUserRequest::ExistingUser(ExistingUser { id }) => User {
             id,
             name: None,
             email: None,
@@ -163,13 +162,13 @@ pub(super) async fn start_authorization_flow(
         PaymentStatus::AuthorizationRequired => {
             // Choose the next action depending on whether the provider has been preselected or not
             let next_action = match payment.payment_method {
-                PaymentMethod::BankTransfer {
+                PaymentMethod::BankTransfer(BankTransfer {
                     provider_selection:
-                        ProviderSelection::Preselected {
+                        ProviderSelection::Preselected(Preselected {
                             ref provider_id, ..
-                        },
+                        }),
                     ..
-                } => {
+                }) => {
                     // Bail out if the user preselected an unexpected provider
                     if !configuration
                         .payments_providers

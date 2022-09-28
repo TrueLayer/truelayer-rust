@@ -407,12 +407,13 @@ mod tests {
             auth::Credentials,
             payments::{
                 refunds::RefundStatus, AdditionalInputType, AuthorizationFlowNextAction,
-                AuthorizationFlowResponseStatus, Beneficiary, ConsentSupported, CountryCode,
-                CreatePaymentStatus, CreatePaymentUserRequest, Currency, FailureStage,
-                FormSupported, PaymentMethod, PaymentMethodRequest, PaymentStatus, Provider,
-                ProviderSelection, ProviderSelectionRequest, ProviderSelectionSupported,
-                RedirectSupported, SchemeSelection, SubmitProviderReturnParametersResponseResource,
-                User,
+                AuthorizationFlowResponseStatus, BankTransfer, BankTransferRequest, Beneficiary,
+                ConsentSupported, CountryCode, CreatePaymentStatus, CreatePaymentUserRequest,
+                Currency, ExistingUser, FailureStage, FormSupported, PaymentMethod,
+                PaymentMethodRequest, PaymentStatus, Provider, ProviderSelection,
+                ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+                SchemeSelection, SubmitProviderReturnParametersResponseResource, User,
+                UserSelected, UserSelectedRequest,
             },
         },
         authenticator::Authenticator,
@@ -499,21 +500,23 @@ mod tests {
             .create(&CreatePaymentRequest {
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
-                payment_method: PaymentMethodRequest::BankTransfer {
-                    provider_selection: ProviderSelectionRequest::UserSelected {
-                        filter: None,
-                        scheme_selection: Some(SchemeSelection::InstantOnly {
-                            allow_remitter_fee: Some(true),
-                        }),
-                    },
+                payment_method: PaymentMethodRequest::BankTransfer(BankTransferRequest {
+                    provider_selection: ProviderSelectionRequest::UserSelected(
+                        UserSelectedRequest {
+                            filter: None,
+                            scheme_selection: Some(SchemeSelection::InstantOnly {
+                                allow_remitter_fee: Some(true),
+                            }),
+                        },
+                    ),
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
                         account_holder_name: None,
                     },
-                },
-                user: CreatePaymentUserRequest::ExistingUser {
+                }),
+                user: CreatePaymentUserRequest::ExistingUser(ExistingUser {
                     id: "user-id".to_string(),
-                },
+                }),
                 metadata: None,
             })
             .await
@@ -888,18 +891,20 @@ mod tests {
         assert_eq!(payment.currency, Currency::Gbp);
         assert_eq!(
             payment.payment_method,
-            PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected {
+            PaymentMethod::BankTransfer(BankTransfer {
+                provider_selection: ProviderSelection::UserSelected(UserSelected {
                     filter: None,
                     scheme_selection: None,
                     provider_id: None,
-                    scheme_id: None
-                },
+                    scheme_id: None,
+                    provider_id: None,
+                    scheme_id: None,
+                }),
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: "merchant-account-id".to_string(),
                     account_holder_name: None
                 }
-            }
+            })
         );
         assert_eq!(
             payment.user,

@@ -833,11 +833,11 @@ mod tests {
                         status: TransactionPayinStatus::Settled,
                         settled_at: now,
                         remitter: Remitter {
-                            account_holder_name: Some("Mr. Holder".into()),
-                            account_identifier: Some(AccountIdentifier::SortCodeAccountNumber {
+                            account_holder_name: "Mr. Holder".into(),
+                            account_identifier: AccountIdentifier::SortCodeAccountNumber {
                                 sort_code: "sort-code".to_string(),
                                 account_number: "account-number".to_string()
-                            })
+                            }
                         }
                     }
                 },
