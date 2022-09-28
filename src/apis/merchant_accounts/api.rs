@@ -264,7 +264,7 @@ mod tests {
                 TransactionPayoutStatus, TransactionType,
             },
             payments::{AccountIdentifier, Currency, Remitter},
-            payouts::PayoutBeneficiary,
+            payouts::{self, ExternalAccount, PayoutBeneficiary},
         },
         authenticator::Authenticator,
         client::Environment,
@@ -848,14 +848,14 @@ mod tests {
                     r#type: TransactionType::Payout {
                         status: TransactionPayoutStatus::Pending,
                         created_at: now,
-                        beneficiary: PayoutBeneficiary::ExternalAccount {
+                        beneficiary: PayoutBeneficiary::ExternalAccount(ExternalAccount {
                             account_holder_name: "Mr. Holder".into(),
                             account_identifier: AccountIdentifier::SortCodeAccountNumber {
                                 sort_code: "sort-code".to_string(),
                                 account_number: "account-number".to_string()
                             },
                             reference: "payout-reference".to_string()
-                        },
+                        }),
                         context_code: TransactionPayoutContextCode::Withdrawal,
                         payout_id: "payout-id-3".into()
                     }
@@ -867,11 +867,11 @@ mod tests {
                     r#type: TransactionType::Payout {
                         status: TransactionPayoutStatus::Settled { settled_at: now },
                         created_at: now,
-                        beneficiary: PayoutBeneficiary::PaymentSource {
+                        beneficiary: PayoutBeneficiary::PaymentSource(payouts::PaymentSource {
                             user_id: "payout-user-id".to_string(),
                             payment_source_id: "payment-source-id".to_string(),
                             reference: "payout-reference".to_string()
-                        },
+                        }),
                         context_code: TransactionPayoutContextCode::Internal,
                         payout_id: "payout-id-4".into()
                     }

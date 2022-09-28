@@ -94,7 +94,7 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{AccountIdentifier, Currency},
-            payouts::{PayoutBeneficiary, PayoutStatus},
+            payouts::{ExternalAccount, PayoutBeneficiary, PayoutStatus},
         },
         authenticator::Authenticator,
         client::Environment,
@@ -168,13 +168,13 @@ mod tests {
                 merchant_account_id: "merchant-account-id".to_string(),
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
-                beneficiary: PayoutBeneficiary::ExternalAccount {
+                beneficiary: PayoutBeneficiary::ExternalAccount(ExternalAccount {
                     account_holder_name: "Mr. Holder".to_string(),
                     account_identifier: AccountIdentifier::Iban {
                         iban: "some-iban".to_string(),
                     },
                     reference: "some-reference".to_string(),
-                },
+                }),
             })
             .await
             .unwrap();
@@ -223,13 +223,13 @@ mod tests {
         assert_eq!(payout.currency, Currency::Gbp);
         assert_eq!(
             payout.beneficiary,
-            PayoutBeneficiary::ExternalAccount {
+            PayoutBeneficiary::ExternalAccount(ExternalAccount {
                 account_holder_name: "Mr. Holder".to_string(),
                 account_identifier: AccountIdentifier::Iban {
                     iban: "some-iban".to_string(),
                 },
                 reference: "some-reference".to_string(),
-            }
+            })
         );
         assert_eq!(payout.created_at, Utc.ymd(2022, 4, 1).and_hms(0, 0, 0));
         assert_eq!(

@@ -10,7 +10,10 @@ use truelayer_rust::{
     apis::{
         merchant_accounts::ListPaymentSourcesRequest,
         payments::{AccountIdentifier, Currency},
-        payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
+        payouts::{
+            CreatePayoutRequestBuilder, ExternalAccount, ExternalAccountBuilder,
+            PaymentSourceBuilder, PayoutBeneficiary, PayoutStatus,
+        },
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -47,16 +50,22 @@ async fn closed_loop_payout() {
     let create_payout_response = ctx
         .client
         .payouts
-        .create(&CreatePayoutRequest {
-            merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-            amount_in_minor: 1,
-            currency: Currency::Gbp,
-            beneficiary: PayoutBeneficiary::PaymentSource {
-                user_id: payment.user.id,
-                payment_source_id: payment_source.id,
-                reference: "rust-sdk-test".to_string(),
-            },
-        })
+        .create(
+            &CreatePayoutRequestBuilder::default()
+                .merchant_account_id(ctx.merchant_account_gbp_id.clone())
+                .amount_in_minor(1)
+                .currency(Currency::Gbp)
+                .beneficiary(PayoutBeneficiary::PaymentSource(
+                    PaymentSourceBuilder::default()
+                        .user_id(payment.user.id)
+                        .payment_source_id(payment_source.id)
+                        .reference("rust-sdk-test".to_string())
+                        .build()
+                        .unwrap(),
+                ))
+                .build()
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -100,16 +109,22 @@ async fn open_loop_payout() {
     let res = ctx
         .client
         .payouts
-        .create(&CreatePayoutRequest {
-            merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-            amount_in_minor: 1,
-            currency: Currency::Gbp,
-            beneficiary: PayoutBeneficiary::ExternalAccount {
-                account_holder_name: merchant_account.account_holder_name.clone(),
-                account_identifier: account_identifier.clone(),
-                reference: "rust-sdk-test".to_string(),
-            },
-        })
+        .create(
+            &CreatePayoutRequestBuilder::default()
+                .merchant_account_id(ctx.merchant_account_gbp_id.clone())
+                .amount_in_minor(1)
+                .currency(Currency::Gbp)
+                .beneficiary(PayoutBeneficiary::ExternalAccount(
+                    ExternalAccountBuilder::default()
+                        .account_holder_name(merchant_account.account_holder_name.clone())
+                        .account_identifier(account_identifier.clone())
+                        .reference("rust-sdk-test".to_string())
+                        .build()
+                        .unwrap(),
+                ))
+                .build()
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -129,9 +144,9 @@ async fn open_loop_payout() {
     assert_eq!(payout.currency, Currency::Gbp);
     assert!(matches!(
         payout.beneficiary,
-        PayoutBeneficiary::ExternalAccount {
+        PayoutBeneficiary::ExternalAccount(ExternalAccount{
             reference,
             ..
-        } if reference == "rust-sdk-test"
+        }) if reference == "rust-sdk-test"
     ));
 }

@@ -6,25 +6,27 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-chrono = { version = "0.4", features = [ "serde" ] }
+chrono = { version = "0.4", features = ["serde"] }
 derive_builder = "0.11.2"
-reqwest = { version = "0.11", features = [ "json" ] }
+reqwest = { version = "0.11", features = ["json"] }
 reqwest-middleware = "0.1"
 reqwest-retry = "0.1"
 reqwest-tracing = "0.3"
 retry-policies = "0.1"
-secrecy = { version = "0.8.0", features = [ "serde" ] }
-serde = { version = "1.0", features = [ "derive" ] }
+secrecy = { version = "0.8.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 task-local-extensions = "0.1"
 thiserror = "1.0"
-tokio = { version = "1", features = [ "rt", "macros", "sync" ] }
+tokio = { version = "1", features = ["rt", "macros", "sync"] }
 tracing = "0.1"
 truelayer-signing = "0.1"
 urlencoding = "2.1"
-uuid = { version = "1.1", features = [ "v4" ] }
+uuid = { version = "1.1", features = ["v4"] }
 
 [dev-dependencies]
+truelayer-rust = { path = ".", default-features = false }
+
 actix-web = "4.0.1"
 config = "0.13"
 dialoguer = "0.10.0"
@@ -32,10 +34,12 @@ futures = "0.3"
 openssl = "0.10"
 rand = "0.8.5"
 test-case = "2.0.0"
-tokio = { version = "1", features = [ "rt-multi-thread", "macros", "sync" ] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 tracing-subscriber = "0.3"
 url = "2.2"
 wiremock = "0.5"
 
 [features]
+default = ["compat"]
 acceptance-tests = []
+compat = []

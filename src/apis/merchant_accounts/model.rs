@@ -3,6 +3,7 @@ use crate::apis::{
     payouts::PayoutBeneficiary,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -15,7 +16,8 @@ pub struct MerchantAccount {
     pub account_holder_name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub struct SetupSweepingRequest {
     pub max_amount_in_minor: u64,
     pub currency: Currency,
@@ -24,6 +26,7 @@ pub struct SetupSweepingRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum SweepingFrequency {
     Daily,
     Weekly,
@@ -38,12 +41,14 @@ pub struct SweepingSettings {
     pub destination: AccountIdentifier,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub struct ListPaymentSourcesRequest {
     pub user_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub struct ListTransactionsRequest {
     #[serde(serialize_with = "serialize_timestamp")]
     pub from: DateTime<Utc>,
@@ -70,6 +75,7 @@ pub struct Transaction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum TransactionType {
     MerchantAccountPayment {
         status: TransactionPayinStatus,
@@ -94,12 +100,14 @@ pub enum TransactionType {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum TransactionPayinStatus {
     Settled,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum TransactionPayoutStatus {
     Pending,
     Settled { settled_at: DateTime<Utc> },
@@ -107,6 +115,7 @@ pub enum TransactionPayoutStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum TransactionPayoutContextCode {
     Withdrawal,
     ServicePayment,

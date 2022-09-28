@@ -3,8 +3,8 @@ use chrono::{DateTime, Utc};
 use rand::Rng;
 use truelayer_rust::apis::{
     merchant_accounts::{
-        ListPaymentSourcesRequest, ListTransactionsRequest, SetupSweepingRequest,
-        SweepingFrequency, SweepingSettings, TransactionType,
+        ListPaymentSourcesRequestBuilder, ListTransactionsRequestBuilder,
+        SetupSweepingRequestBuilder, SweepingFrequency, SweepingSettings, TransactionType,
     },
     payments::{AccountIdentifier, Currency},
 };
@@ -72,11 +72,12 @@ async fn sweeping() {
         .merchant_accounts
         .setup_sweeping(
             &ctx.merchant_account_gbp_id,
-            &SetupSweepingRequest {
-                max_amount_in_minor,
-                currency: Currency::Gbp,
-                frequency: SweepingFrequency::Fortnightly,
-            },
+            &SetupSweepingRequestBuilder::default()
+                .max_amount_in_minor(max_amount_in_minor)
+                .currency(Currency::Gbp)
+                .frequency(SweepingFrequency::Fortnightly)
+                .build()
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -127,15 +128,18 @@ async fn list_transactions() {
         .merchant_accounts
         .list_transactions(
             &ctx.merchant_account_gbp_id,
-            &ListTransactionsRequest {
-                from: DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+            &ListTransactionsRequestBuilder::default()
+                .from(
+                    DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                )
+                .to(DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
                     .unwrap()
-                    .with_timezone(&Utc),
-                to: DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                r#type: None,
-            },
+                    .with_timezone(&Utc))
+                .r#type(None)
+                .build()
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -153,15 +157,18 @@ async fn list_payment_sources() {
         .merchant_accounts
         .list_transactions(
             &ctx.merchant_account_gbp_id,
-            &ListTransactionsRequest {
-                from: DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+            &ListTransactionsRequestBuilder::default()
+                .from(
+                    DateTime::parse_from_rfc3339("2021-03-01T00:00:00.000Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                )
+                .to(DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
                     .unwrap()
-                    .with_timezone(&Utc),
-                to: DateTime::parse_from_rfc3339("2022-03-01T00:00:00.000Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                r#type: None,
-            },
+                    .with_timezone(&Utc))
+                .r#type(None)
+                .build()
+                .unwrap(),
         )
         .await
         .unwrap()
@@ -179,9 +186,10 @@ async fn list_payment_sources() {
         .merchant_accounts
         .list_payment_sources(
             &ctx.merchant_account_gbp_id,
-            &ListPaymentSourcesRequest {
-                user_id: payment_source.user_id.unwrap(),
-            },
+            &ListPaymentSourcesRequestBuilder::default()
+                .user_id(payment_source.user_id.unwrap())
+                .build()
+                .unwrap(),
         )
         .await
         .unwrap();

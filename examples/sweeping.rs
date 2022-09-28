@@ -3,7 +3,7 @@ use dialoguer::{console::style, theme::ColorfulTheme, Confirm, Input, Select};
 use truelayer_rust::{
     apis::{
         auth::Credentials,
-        merchant_accounts::{SetupSweepingRequest, SweepingFrequency},
+        merchant_accounts::{SetupSweepingRequestBuilder, SweepingFrequency},
     },
     client::Environment,
     TrueLayerClient,
@@ -103,11 +103,12 @@ async fn run() -> anyhow::Result<()> {
         tl.merchant_accounts
             .setup_sweeping(
                 &merchant_account.id,
-                &SetupSweepingRequest {
-                    max_amount_in_minor: amount,
-                    currency: merchant_account.currency.clone(),
-                    frequency: frequency.clone(),
-                },
+                &SetupSweepingRequestBuilder::default()
+                    .max_amount_in_minor(amount)
+                    .currency(merchant_account.currency.clone())
+                    .frequency(frequency.clone())
+                    .build()
+                    .unwrap(),
             )
             .await?;
         println!(

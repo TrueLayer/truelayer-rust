@@ -407,13 +407,13 @@ mod tests {
             auth::Credentials,
             payments::{
                 refunds::RefundStatus, AdditionalInputType, AuthorizationFlowNextAction,
-                AuthorizationFlowResponseStatus, BankTransfer, BankTransferRequest, Beneficiary,
+                AuthorizationFlowResponseStatus, BankTransferRequest, Beneficiary,
                 ConsentSupported, CountryCode, CreatePaymentStatus, CreatePaymentUserRequest,
                 Currency, ExistingUser, FailureStage, FormSupported, PaymentMethod,
                 PaymentMethodRequest, PaymentStatus, Provider, ProviderSelection,
                 ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
                 SchemeSelection, SubmitProviderReturnParametersResponseResource, User,
-                UserSelected, UserSelectedRequest,
+                UserSelectedRequest,
             },
         },
         authenticator::Authenticator,
@@ -891,20 +891,18 @@ mod tests {
         assert_eq!(payment.currency, Currency::Gbp);
         assert_eq!(
             payment.payment_method,
-            PaymentMethod::BankTransfer(BankTransfer {
-                provider_selection: ProviderSelection::UserSelected(UserSelected {
+            PaymentMethod::BankTransfer {
+                provider_selection: ProviderSelection::UserSelected {
                     filter: None,
                     scheme_selection: None,
                     provider_id: None,
                     scheme_id: None,
-                    provider_id: None,
-                    scheme_id: None,
-                }),
+                },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: "merchant-account-id".to_string(),
                     account_holder_name: None
                 }
-            })
+            }
         );
         assert_eq!(
             payment.user,

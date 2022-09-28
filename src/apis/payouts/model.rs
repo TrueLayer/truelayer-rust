@@ -6,9 +6,11 @@ use crate::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder)]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub struct CreatePayoutRequest {
     pub merchant_account_id: String,
     pub amount_in_minor: u64,
@@ -36,17 +38,24 @@ impl Pollable for CreatePayoutResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum PayoutBeneficiary {
-    ExternalAccount {
-        account_holder_name: String,
-        account_identifier: AccountIdentifier,
-        reference: String,
-    },
-    PaymentSource {
-        user_id: String,
-        payment_source_id: String,
-        reference: String,
-    },
+    ExternalAccount(ExternalAccount),
+    PaymentSource(PaymentSource),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct ExternalAccount {
+    pub account_holder_name: String,
+    pub account_identifier: AccountIdentifier,
+    pub reference: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+pub struct PaymentSource {
+    pub user_id: String,
+    pub payment_source_id: String,
+    pub reference: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -86,6 +95,7 @@ impl IsInTerminalState for Payout {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "compat"), non_exhaustive)]
 pub enum PayoutStatus {
     Pending,
     Authorized,

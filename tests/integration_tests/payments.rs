@@ -6,21 +6,17 @@ use retry_policies::policies::ExponentialBackoff;
 use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
 use truelayer_rust::{
-    apis::{
-        merchant_accounts::ListPaymentSourcesRequest,
-        payments::{
-            AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
-            AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransferBuilder,
-            Beneficiary, CreatePaymentRequestBuilder, CreatePaymentUserRequest, Currency,
-            FailureStage, FormSupportedBuilder, NewUser, PaymentMethod, PaymentStatus,
-            PreselectedBuilder, ProviderSelection, ProviderSelectionSupportedBuilder,
-            RedirectSupportedBuilder, StartAuthorizationFlowRequestBuilder,
-            StartAuthorizationFlowResponse, SubmitFormActionRequestBuilder,
-            SubmitProviderReturnParametersRequestBuilder,
-            SubmitProviderReturnParametersResponseResource,
-            SubmitProviderSelectionActionRequestBuilder, UserSelectedBuilder,
-        },
-        payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
+    apis::payments::{
+        AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
+        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransferRequestBuilder,
+        Beneficiary, CreatePaymentRequestBuilder, CreatePaymentStatus, CreatePaymentUserRequest,
+        Currency, FailureStage, FormSupportedBuilder, NewUser, PaymentMethodRequest, PaymentStatus,
+        PreselectedRequestBuilder, ProviderSelectionRequest, ProviderSelectionSupportedBuilder,
+        RedirectSupportedBuilder, SchemeSelection, StartAuthorizationFlowRequestBuilder,
+        StartAuthorizationFlowResponse, SubmitFormActionRequestBuilder,
+        SubmitProviderReturnParametersRequestBuilder,
+        SubmitProviderReturnParametersResponseResource,
+        SubmitProviderSelectionActionRequestBuilder, UserSelectedRequestBuilder,
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -54,10 +50,10 @@ async fn hpp_link_returns_200() {
     let create_payment_request = CreatePaymentRequestBuilder::default()
         .amount_in_minor(1)
         .currency(Currency::Gbp)
-        .payment_method(PaymentMethod::BankTransfer(
-            BankTransferBuilder::default()
-                .provider_selection(ProviderSelection::UserSelected(
-                    UserSelectedBuilder::default().build().unwrap(),
+        .payment_method(PaymentMethodRequest::BankTransfer(
+            BankTransferRequestBuilder::default()
+                .provider_selection(ProviderSelectionRequest::UserSelected(
+                    UserSelectedRequestBuilder::default().build().unwrap(),
                 ))
                 .beneficiary(Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
@@ -149,16 +145,16 @@ impl CreatePaymentScenario {
         let ctx = TestContext::start().await;
 
         let provider_selection = match &self.provider_selection {
-            ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected(
-                UserSelectedBuilder::default()
-                    .preferred_scheme_ids(match self.currency {
-                        Currency::Gbp => Some(vec!["faster_payments_service".into()]),
-                        Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
-                        _ => unimplemented!(),
-                    })
-                    .build()
-                    .unwrap(),
-            ),
+            ScenarioProviderSelection::UserSelected { .. } => {
+                ProviderSelectionRequest::UserSelected(
+                    UserSelectedRequestBuilder::default()
+                        .scheme_selection(Some(SchemeSelection::InstantPreferred {
+                            allow_remitter_fee: Some(true),
+                        }))
+                        .build()
+                        .unwrap(),
+                )
+            }
             ScenarioProviderSelection::Preselected {
                 provider_id,
                 scheme_id,
@@ -180,7 +176,7 @@ impl CreatePaymentScenario {
                 assert!(available_schemes.iter().any(|s| &s.id == scheme_id));
 
                 ProviderSelectionRequest::Preselected(
-                    PreselectedBuilder::default()
+                    PreselectedRequestBuilder::default()
                         .provider_id(provider_id.clone())
                         .scheme_id(scheme_id.clone())
                         .build()
@@ -194,7 +190,7 @@ impl CreatePaymentScenario {
             .amount_in_minor(1)
             .currency(self.currency.clone())
             .payment_method(PaymentMethodRequest::BankTransfer(
-                BankTransferBuilder::default()
+                BankTransferRequestBuilder::default()
                     .provider_selection(provider_selection)
                     .beneficiary(match self.beneficiary {
                         ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
@@ -208,7 +204,7 @@ impl CreatePaymentScenario {
                             account_identifier: account_identifier.clone(),
                             reference: "Reference".to_string(),
                         },
-                    },
+                    })
                     .build()
                     .unwrap(),
             ))
@@ -296,7 +292,6 @@ impl CreatePaymentScenario {
             .client
             .payments
             .start_authorization_flow(&res.id, &start_authorization_flow_request)
-                    consent: Some(ConsentSupported {}),
             .await
             .unwrap();
 
@@ -535,59 +530,6 @@ impl CreatePaymentScenario {
                     } if failure_stage == expected_failure_stage && failure_reason == expected_failure_reason
                 ));
             }
-        }
-
-        // Test a closed loop payout for the payment we just created
-        if self.make_closed_loop_payout {
-            // Get the payment source for the user created by this payment
-            let payment_source = retry(Duration::from_secs(60), || async {
-                ctx.client
-                    .merchant_accounts
-                    .list_payment_sources(
-                        &ctx.merchant_account_gbp_id,
-                        &ListPaymentSourcesRequest {
-                            user_id: res.user.id.clone(),
-                        },
-                    )
-                    .await
-                    .unwrap()
-                    .first()
-                    .cloned()
-            })
-            .await
-            .expect("Payment source failed to appear");
-
-            // Create a payout against this payment source
-            let create_payout_response = ctx
-                .client
-                .payouts
-                .create(&CreatePayoutRequest {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    amount_in_minor: 1,
-                    currency: Currency::Gbp,
-                    beneficiary: PayoutBeneficiary::PaymentSource {
-                        user_id: res.user.id,
-                        payment_source_id: payment_source.id,
-                        reference: "rust-sdk-test".to_string(),
-                    },
-                })
-                .await
-                .unwrap();
-
-            // Wait until the payout is executed
-            let payout = create_payout_response
-                .poll_until_terminal_state(
-                    &ctx.client,
-                    PollOptions::default().with_retry_policy(
-                        ExponentialBackoff::builder()
-                            .build_with_total_retry_duration(Duration::from_secs(60)),
-                    ),
-                )
-                .await
-                .unwrap();
-
-            // Assert that it succeeded
-            assert!(matches!(payout.status, PayoutStatus::Executed { .. }));
         }
     }
 }

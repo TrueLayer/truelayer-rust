@@ -17,11 +17,13 @@ use truelayer_rust::apis::{
         refunds::{CreateRefundRequest, Refund, RefundStatus},
         AccountIdentifier, AdditionalInput, AdditionalInputDisplayText, AdditionalInputFormat,
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransfer,
-        CreatePaymentRequest, CreatePaymentUserRequest, Currency, ExistingUser, NewUser, Payment,
-        PaymentMethod, PaymentSource, PaymentStatus, Preselected, Provider, ProviderSelection,
-        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
-        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest, User,
+        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransferRequest,
+        CreatePaymentRequest, CreatePaymentUserRequest, Currency, ExistingUser, FailureStage,
+        NewUser, Payment, PaymentMethod, PaymentSource, PaymentStatus, PreselectedRequest,
+        Provider, ProviderSelection, ProviderSelectionRequest, StartAuthorizationFlowRequest,
+        StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest,
+        SubsequentAction, User, UserSelectedRequest,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -74,25 +76,27 @@ pub(super) async fn create_payment(
     };
 
     let payment_method = match create_payment_request.payment_method.clone() {
-        truelayer_rust::apis::payments::PaymentMethodRequest::BankTransfer {
-            provider_selection,
-            beneficiary,
-        } => PaymentMethod::BankTransfer {
+        truelayer_rust::apis::payments::PaymentMethodRequest::BankTransfer(
+            BankTransferRequest {
+                provider_selection,
+                beneficiary,
+            },
+        ) => PaymentMethod::BankTransfer {
             provider_selection: match provider_selection {
-                ProviderSelectionRequest::UserSelected {
+                ProviderSelectionRequest::UserSelected(UserSelectedRequest {
                     filter,
                     scheme_selection,
-                } => ProviderSelection::UserSelected {
+                }) => ProviderSelection::UserSelected {
                     filter,
                     scheme_selection,
                     provider_id: None,
                     scheme_id: None,
                 },
-                ProviderSelectionRequest::Preselected {
+                ProviderSelectionRequest::Preselected(PreselectedRequest {
                     provider_id,
                     scheme_id,
                     remitter,
-                } => ProviderSelection::Preselected {
+                }) => ProviderSelection::Preselected {
                     provider_id,
                     scheme_id,
                     remitter,
@@ -162,13 +166,13 @@ pub(super) async fn start_authorization_flow(
         PaymentStatus::AuthorizationRequired => {
             // Choose the next action depending on whether the provider has been preselected or not
             let next_action = match payment.payment_method {
-                PaymentMethod::BankTransfer(BankTransfer {
+                PaymentMethod::BankTransfer {
                     provider_selection:
-                        ProviderSelection::Preselected(Preselected {
+                        ProviderSelection::Preselected {
                             ref provider_id, ..
-                        }),
+                        },
                     ..
-                }) => {
+                } => {
                     // Bail out if the user preselected an unexpected provider
                     if !configuration
                         .payments_providers
@@ -373,6 +377,7 @@ pub(super) async fn submit_consent(
             ProviderSelection::UserSelected { provider_id, .. } => provider_id.as_deref(),
             ProviderSelection::Preselected { provider_id, .. } => Some(provider_id.as_str()),
         },
+        _ => todo!(),
     };
 
     let next_action = match provider_id {

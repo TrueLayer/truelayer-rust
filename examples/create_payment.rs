@@ -3,9 +3,9 @@ use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
-            BankTransferBuilder, Beneficiary, CreatePaymentRequestBuilder,
-            CreatePaymentUserRequest, Currency, NewUser, PaymentMethodRequest, ProviderSelection,
-            UserSelectedBuilderRequest,
+            BankTransferRequestBuilder, Beneficiary, CreatePaymentRequestBuilder,
+            CreatePaymentUserRequest, Currency, NewUser, PaymentMethodRequest,
+            ProviderSelectionRequest, UserSelectedRequestBuilder,
         },
     },
     client::Environment,
@@ -67,10 +67,10 @@ async fn run() -> anyhow::Result<()> {
     let create_payment_request = CreatePaymentRequestBuilder::default()
         .amount_in_minor(100)
         .currency(Currency::Gbp)
-        .payment_method(PaymentMethod::BankTransfer(
-            BankTransferBuilder::default()
-                .provider_selection(ProviderSelection::UserSelected(
-                    UserSelectedBuilder::default().build().unwrap(),
+        .payment_method(PaymentMethodRequest::BankTransfer(
+            BankTransferRequestBuilder::default()
+                .provider_selection(ProviderSelectionRequest::UserSelected(
+                    UserSelectedRequestBuilder::default().build().unwrap(),
                 ))
                 .beneficiary(Beneficiary::MerchantAccount {
                     merchant_account_id: merchant_account.id,
