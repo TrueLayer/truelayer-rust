@@ -1,8 +1,11 @@
 use crate::common::MockBankAction;
 use anyhow::Context;
+use serde_json::json;
 use std::str::FromStr;
 use truelayer_rust::{apis::auth::Credentials, client::Environment, TrueLayerClient};
 use url::Url;
+
+static SANDBOX_RETURN_PARAMETERS_URI: &str = "https://pay-api.truelayer-sandbox.com";
 
 pub struct TestContext {
     pub client: TrueLayerClient,
@@ -79,5 +82,28 @@ impl TestContext {
             .await?;
 
         Ok(Url::from_str(&provider_return_uri)?)
+    }
+
+    pub async fn submit_provider_return_parameters(
+        &self,
+        query: &str,
+        fragment: &str,
+    ) -> Result<(), anyhow::Error> {
+        reqwest::Client::new()
+            .post(
+                Url::parse(SANDBOX_RETURN_PARAMETERS_URI)
+                    .unwrap()
+                    .join("/spa/submit-provider-return-parameters")
+                    .unwrap(),
+            )
+            .json(&json!({
+                "fragment": fragment,
+                "query": query
+            }))
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(())
     }
 }

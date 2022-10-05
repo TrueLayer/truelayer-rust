@@ -78,4 +78,14 @@ impl TestContext {
             .complete_mock_bank_redirect_authorization(redirect_uri, action)
             .await
     }
+
+    pub async fn submit_provider_return_parameters(
+        &self,
+        _query: &str,
+        _fragment: &str,
+    ) -> Result<(), anyhow::Error> {
+        // This is only necessary for acceptance tests to work correctly.
+        // This work is usually done by TrueLayer's SPA upon redirect from the provider.
+        Ok(())
+    }
 }
