@@ -86,8 +86,8 @@ impl TestContext {
 
     pub async fn submit_provider_return_parameters(
         &self,
-        query: String,
-        fragment: String,
+        query: &str,
+        fragment: &str,
     ) -> Result<(), anyhow::Error> {
         reqwest::Client::new()
             .post(

@@ -442,8 +442,8 @@ impl CreatePaymentScenario {
             );
         } else {
             ctx.submit_provider_return_parameters(
-                provider_return_uri.query().unwrap_or("").to_string(),
-                provider_return_uri.fragment().unwrap_or("").to_string(),
+                provider_return_uri.query().unwrap_or(""),
+                provider_return_uri.fragment().unwrap_or(""),
             )
             .await
             .unwrap()
