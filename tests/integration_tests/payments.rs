@@ -8,10 +8,10 @@ use truelayer_rust::{
         payments::{
             AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
             AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-            CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest, Currency,
-            FailureStage, FormSupported, PaymentMethod, PaymentStatus, ProviderSelection,
-            ProviderSelectionSupported, RedirectSupported, StartAuthorizationFlowRequest,
-            StartAuthorizationFlowResponse, SubmitFormActionRequest,
+            ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
+            Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
+            ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+            StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
             SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
             SubmitProviderSelectionActionRequest,
         },
@@ -52,8 +52,8 @@ async fn hpp_link_returns_200() {
         .create(&CreatePaymentRequest {
             amount_in_minor: 1,
             currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected {
+            payment_method: PaymentMethodRequest::BankTransfer {
+                provider_selection: ProviderSelectionRequest::UserSelected {
                     filter: None,
                     preferred_scheme_ids: None,
                 },
@@ -142,13 +142,15 @@ impl CreatePaymentScenario {
         let ctx = TestContext::start().await;
 
         let provider_selection = match &self.provider_selection {
-            ScenarioProviderSelection::UserSelected { .. } => ProviderSelection::UserSelected {
-                filter: None,
-                preferred_scheme_ids: match self.currency {
-                    Currency::Gbp => Some(vec!["faster_payments_service".into()]),
-                    Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
-                },
-            },
+            ScenarioProviderSelection::UserSelected { .. } => {
+                ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    preferred_scheme_ids: match self.currency {
+                        Currency::Gbp => Some(vec!["faster_payments_service".into()]),
+                        Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
+                    },
+                }
+            }
             ScenarioProviderSelection::Preselected {
                 provider_id,
                 scheme_id,
@@ -169,7 +171,7 @@ impl CreatePaymentScenario {
 
                 assert!(available_schemes.iter().any(|s| &s.id == scheme_id));
 
-                ProviderSelection::Preselected {
+                ProviderSelectionRequest::Preselected {
                     provider_id: provider_id.clone(),
                     scheme_id: scheme_id.clone(),
                     remitter: None,
@@ -181,7 +183,7 @@ impl CreatePaymentScenario {
         let create_payment_request = CreatePaymentRequest {
             amount_in_minor: 1,
             currency: self.currency.clone(),
-            payment_method: PaymentMethod::BankTransfer {
+            payment_method: PaymentMethodRequest::BankTransfer {
                 provider_selection,
                 beneficiary: match self.beneficiary {
                     ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
@@ -235,7 +237,7 @@ impl CreatePaymentScenario {
         assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
         assert_eq!(payment.user.phone, None);
         assert_eq!(
-            payment.payment_method,
+            PaymentMethodRequest::from(payment.payment_method),
             create_payment_request.payment_method
         );
         assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
@@ -267,6 +269,7 @@ impl CreatePaymentScenario {
                             AdditionalInputType::TextWithImage,
                         ],
                     }),
+                    consent: Some(ConsentSupported {}),
                 },
             )
             .await
@@ -322,6 +325,24 @@ impl CreatePaymentScenario {
             status = submit_provider_selection_response.status;
             authorization_flow = submit_provider_selection_response.authorization_flow;
         }
+
+        // Assert that the next action in the auth flow is Consent
+        assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
+        assert!(matches!(
+            authorization_flow,
+            Some(AuthorizationFlow {
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Consent { .. }
+                }),
+                ..
+            })
+        ));
+
+        // Submit consent
+        let submit_consent_response = ctx.client.payments.submit_consent(&res.id).await.unwrap();
+
+        status = submit_consent_response.status;
+        authorization_flow = submit_consent_response.authorization_flow;
 
         if match &self.provider_selection {
             ScenarioProviderSelection::Preselected { provider_id, .. } => provider_id,

@@ -16,9 +16,10 @@ use truelayer_rust::apis::{
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
         CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
-        Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
-        SubmitProviderSelectionActionRequest, User,
+        Provider, ProviderSelection, ProviderSelectionRequest, StartAuthorizationFlowRequest,
+        StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest,
+        SubsequentAction, User,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -70,6 +71,35 @@ pub(super) async fn create_payment(
         },
     };
 
+    let payment_method = match create_payment_request.payment_method.clone() {
+        truelayer_rust::apis::payments::PaymentMethodRequest::BankTransfer {
+            provider_selection,
+            beneficiary,
+        } => PaymentMethod::BankTransfer {
+            provider_selection: match provider_selection {
+                ProviderSelectionRequest::UserSelected {
+                    filter,
+                    preferred_scheme_ids,
+                } => ProviderSelection::UserSelected {
+                    filter,
+                    preferred_scheme_ids,
+                    provider_id: None,
+                    scheme_id: None,
+                },
+                ProviderSelectionRequest::Preselected {
+                    provider_id,
+                    scheme_id,
+                    remitter,
+                } => ProviderSelection::Preselected {
+                    provider_id,
+                    scheme_id,
+                    remitter,
+                },
+            },
+            beneficiary,
+        },
+    };
+
     storage.write().unwrap().payments.insert(
         id.clone(),
         Payment {
@@ -77,7 +107,7 @@ pub(super) async fn create_payment(
             amount_in_minor: create_payment_request.amount_in_minor,
             currency: create_payment_request.currency.clone(),
             user: user.clone(),
-            payment_method: create_payment_request.payment_method.clone(),
+            payment_method,
             created_at: Utc::now(),
             status: PaymentStatus::AuthorizationRequired,
             metadata: create_payment_request.metadata.clone(),
@@ -142,9 +172,12 @@ pub(super) async fn start_authorization_flow(
                     {
                         return HttpResponse::BadRequest().finish();
                     }
-                    match select_next_action(provider_id, &payment.id) {
-                        Some(action) => action,
-                        None => return HttpResponse::BadRequest().finish(),
+                    AuthorizationFlowNextAction::Consent {
+                        subsequent_action_hint: match provider_id.as_str() {
+                            MOCK_PROVIDER_ID_REDIRECT => SubsequentAction::Redirect,
+                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => SubsequentAction::Form,
+                            _ => return HttpResponse::BadRequest().finish(),
+                        },
                     }
                 }
                 _ => AuthorizationFlowNextAction::ProviderSelection {
@@ -196,10 +229,18 @@ pub(super) async fn submit_provider_selection(
         None => return HttpResponse::NotFound().finish(),
     };
 
-    let next_action = match select_next_action(&body.provider_id, &payment.id) {
-        Some(action) => action,
-        None => return HttpResponse::BadRequest().finish(),
-    };
+    // Update provider selection
+    if let PaymentMethod::BankTransfer {
+        provider_selection:
+            ProviderSelection::UserSelected {
+                ref mut provider_id,
+                ..
+            },
+        ..
+    } = payment.payment_method
+    {
+        *provider_id = Some(body.provider_id.clone());
+    }
 
     match payment.status {
         PaymentStatus::Authorizing {
@@ -208,6 +249,143 @@ pub(super) async fn submit_provider_selection(
                     actions:
                         Some(AuthorizationFlowActions {
                             next: AuthorizationFlowNextAction::ProviderSelection { .. },
+                        }),
+                    ..
+                },
+        } => {
+            let authorization_flow = AuthorizationFlow {
+                configuration: None,
+                actions: Some(AuthorizationFlowActions {
+                    next: AuthorizationFlowNextAction::Consent {
+                        subsequent_action_hint: match body.provider_id.as_str() {
+                            MOCK_PROVIDER_ID_REDIRECT => SubsequentAction::Redirect,
+                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => SubsequentAction::Form,
+                            _ => return HttpResponse::BadRequest().finish(),
+                        },
+                    },
+                }),
+            };
+            payment.status = PaymentStatus::Authorizing {
+                authorization_flow: authorization_flow.clone(),
+            };
+
+            HttpResponse::Ok().json(StartAuthorizationFlowResponse {
+                authorization_flow: Some(authorization_flow),
+                status: AuthorizationFlowResponseStatus::Authorizing,
+            })
+        }
+        _ => HttpResponse::BadRequest().finish(),
+    }
+}
+
+fn create_form_action() -> AuthorizationFlowNextAction {
+    AuthorizationFlowNextAction::Form {
+        inputs: vec![
+            AdditionalInput::Text {
+                id: "psu-branch-code".to_string(),
+                mandatory: true,
+                display_text: AdditionalInputDisplayText {
+                    key: "psu-branch-code.display_text".to_string(),
+                    default: "Branch code".to_string(),
+                },
+                format: AdditionalInputFormat::Any,
+                sensitive: true,
+                min_length: 3,
+                max_length: 3,
+                regexes: vec![AdditionalInputRegex {
+                    regex: r"^\d{3}$".to_string(),
+                    message: AdditionalInputDisplayText {
+                        key: "psu-branch-code.regex".to_string(),
+                        default: "Validation Regex".to_string(),
+                    },
+                }],
+                description: None,
+            },
+            AdditionalInput::Text {
+                id: "psu-account-number".to_string(),
+                mandatory: true,
+                display_text: AdditionalInputDisplayText {
+                    key: "psu-account-number.display_text".to_string(),
+                    default: "Account number".to_string(),
+                },
+                format: AdditionalInputFormat::Any,
+                sensitive: true,
+                min_length: 3,
+                max_length: 3,
+                regexes: vec![AdditionalInputRegex {
+                    regex: r"^\d{3}$".to_string(),
+                    message: AdditionalInputDisplayText {
+                        key: "psu-account-number.regex".to_string(),
+                        default: "Validation Regex".to_string(),
+                    },
+                }],
+                description: None,
+            },
+            AdditionalInput::Text {
+                id: "psu-sub-account".to_string(),
+                mandatory: true,
+                display_text: AdditionalInputDisplayText {
+                    key: "psu-sub-account.display_text".to_string(),
+                    default: "Sub-account".to_string(),
+                },
+                format: AdditionalInputFormat::Any,
+                sensitive: true,
+                min_length: 3,
+                max_length: 3,
+                regexes: vec![AdditionalInputRegex {
+                    regex: r"^\d{3}$".to_string(),
+                    message: AdditionalInputDisplayText {
+                        key: "psu-sub-account.regex".to_string(),
+                        default: "Validation Regex".to_string(),
+                    },
+                }],
+                description: None,
+            },
+        ],
+    }
+}
+
+/// POST /payments/{id}/authorization-flow/consent
+pub(super) async fn submit_consent(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let id = path.into_inner();
+
+    // Extract the payment from its id
+    let mut map = storage.write().unwrap();
+    let payment = match map.payments.get_mut(&id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    // Select the next action (redirect/form) based on the selected provider
+    let provider_id = match payment.payment_method {
+        PaymentMethod::BankTransfer {
+            ref provider_selection,
+            ..
+        } => match provider_selection {
+            ProviderSelection::UserSelected { provider_id, .. } => provider_id.as_deref(),
+            ProviderSelection::Preselected { provider_id, .. } => Some(provider_id.as_str()),
+        },
+    };
+
+    let next_action = match provider_id {
+        Some(MOCK_PROVIDER_ID_REDIRECT) => AuthorizationFlowNextAction::Redirect {
+            uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
+            metadata: None,
+        },
+        Some(MOCK_PROVIDER_ID_ADDITIONAL_INPUTS) => create_form_action(),
+        _ => return HttpResponse::BadRequest().finish(),
+    };
+
+    match payment.status {
+        PaymentStatus::Authorizing {
+            authorization_flow:
+                AuthorizationFlow {
+                    actions:
+                        Some(AuthorizationFlowActions {
+                            next: AuthorizationFlowNextAction::Consent { .. },
                         }),
                     ..
                 },
@@ -227,82 +405,6 @@ pub(super) async fn submit_provider_selection(
         }
         _ => HttpResponse::BadRequest().finish(),
     }
-}
-
-fn select_next_action(provider_id: &str, payment_id: &str) -> Option<AuthorizationFlowNextAction> {
-    if provider_id == MOCK_PROVIDER_ID_REDIRECT {
-        return Some(AuthorizationFlowNextAction::Redirect {
-            uri: format!("{}{}", MOCK_REDIRECT_URI, payment_id),
-            metadata: None,
-        });
-    }
-    if provider_id == MOCK_PROVIDER_ID_ADDITIONAL_INPUTS {
-        return Some(AuthorizationFlowNextAction::Form {
-            inputs: vec![
-                AdditionalInput::Text {
-                    id: "psu-branch-code".to_string(),
-                    mandatory: true,
-                    display_text: AdditionalInputDisplayText {
-                        key: "psu-branch-code.display_text".to_string(),
-                        default: "Branch code".to_string(),
-                    },
-                    format: AdditionalInputFormat::Any,
-                    sensitive: true,
-                    min_length: 3,
-                    max_length: 3,
-                    regexes: vec![AdditionalInputRegex {
-                        regex: r"^\d{3}$".to_string(),
-                        message: AdditionalInputDisplayText {
-                            key: "psu-branch-code.regex".to_string(),
-                            default: "Validation Regex".to_string(),
-                        },
-                    }],
-                    description: None,
-                },
-                AdditionalInput::Text {
-                    id: "psu-account-number".to_string(),
-                    mandatory: true,
-                    display_text: AdditionalInputDisplayText {
-                        key: "psu-account-number.display_text".to_string(),
-                        default: "Account number".to_string(),
-                    },
-                    format: AdditionalInputFormat::Any,
-                    sensitive: true,
-                    min_length: 3,
-                    max_length: 3,
-                    regexes: vec![AdditionalInputRegex {
-                        regex: r"^\d{3}$".to_string(),
-                        message: AdditionalInputDisplayText {
-                            key: "psu-account-number.regex".to_string(),
-                            default: "Validation Regex".to_string(),
-                        },
-                    }],
-                    description: None,
-                },
-                AdditionalInput::Text {
-                    id: "psu-sub-account".to_string(),
-                    mandatory: true,
-                    display_text: AdditionalInputDisplayText {
-                        key: "psu-sub-account.display_text".to_string(),
-                        default: "Sub-account".to_string(),
-                    },
-                    format: AdditionalInputFormat::Any,
-                    sensitive: true,
-                    min_length: 3,
-                    max_length: 3,
-                    regexes: vec![AdditionalInputRegex {
-                        regex: r"^\d{3}$".to_string(),
-                        message: AdditionalInputDisplayText {
-                            key: "psu-sub-account.regex".to_string(),
-                            default: "Validation Regex".to_string(),
-                        },
-                    }],
-                    description: None,
-                },
-            ],
-        });
-    }
-    None
 }
 
 /// POST /payments/{id}/authorization-flow/form

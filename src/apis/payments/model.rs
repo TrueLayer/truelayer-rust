@@ -8,16 +8,79 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
-    pub payment_method: PaymentMethod,
+    pub payment_method: PaymentMethodRequest,
     pub user: CreatePaymentUserRequest,
     pub metadata: Option<HashMap<String, String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PaymentMethodRequest {
+    BankTransfer {
+        provider_selection: ProviderSelectionRequest,
+        beneficiary: Beneficiary,
+    },
+}
+
+impl From<PaymentMethod> for PaymentMethodRequest {
+    /// Builds a new payment method request configuration from an existing PaymentMethod
+    fn from(p: PaymentMethod) -> Self {
+        match p {
+            PaymentMethod::BankTransfer {
+                provider_selection,
+                beneficiary,
+            } => PaymentMethodRequest::BankTransfer {
+                provider_selection: provider_selection.into(),
+                beneficiary,
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProviderSelectionRequest {
+    UserSelected {
+        filter: Option<ProviderFilter>,
+        preferred_scheme_ids: Option<Vec<String>>,
+    },
+    Preselected {
+        provider_id: String,
+        scheme_id: String,
+        remitter: Option<Remitter>,
+    },
+}
+
+impl From<ProviderSelection> for ProviderSelectionRequest {
+    /// Builds a new ProviderSelectionRequest configuration from an existing ProviderSelection
+    fn from(p: ProviderSelection) -> Self {
+        match p {
+            ProviderSelection::UserSelected {
+                filter,
+                preferred_scheme_ids,
+                ..
+            } => ProviderSelectionRequest::UserSelected {
+                filter,
+                preferred_scheme_ids,
+            },
+            ProviderSelection::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            } => ProviderSelectionRequest::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum CreatePaymentUserRequest {
     ExistingUser {
@@ -63,7 +126,7 @@ impl Pollable for CreatePaymentResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct CreatePaymentUserResponse {
     pub id: String,
 }
@@ -221,6 +284,8 @@ pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
         preferred_scheme_ids: Option<Vec<String>>,
+        provider_id: Option<String>,
+        scheme_id: Option<String>,
     },
     Preselected {
         provider_id: String,
@@ -301,10 +366,20 @@ pub enum AuthorizationFlowNextAction {
         uri: String,
         metadata: Option<RedirectActionMetadata>,
     },
+    Consent {
+        subsequent_action_hint: SubsequentAction,
+    },
     Form {
         inputs: Vec<AdditionalInput>,
     },
     Wait,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SubsequentAction {
+    Redirect,
+    Form,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -400,6 +475,7 @@ pub enum AdditionalInputImage {
 pub struct AuthorizationFlowConfiguration {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub consent: Option<ConsentSupported>,
     pub form: Option<FormSupported>,
 }
 
@@ -411,6 +487,9 @@ pub struct RedirectSupported {
     pub return_uri: String,
     pub direct_return_uri: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct ConsentSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct FormSupported {
@@ -437,6 +516,7 @@ pub struct User {
 pub struct StartAuthorizationFlowRequest {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
+    pub consent: Option<ConsentSupported>,
     pub form: Option<FormSupported>,
 }
 
@@ -454,6 +534,13 @@ pub struct SubmitProviderSelectionActionRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct SubmitProviderSelectionActionResponse {
+    pub authorization_flow: Option<AuthorizationFlow>,
+    #[serde(flatten)]
+    pub status: AuthorizationFlowResponseStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubmitConsentActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
     pub status: AuthorizationFlowResponseStatus,

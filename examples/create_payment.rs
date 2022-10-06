@@ -3,8 +3,8 @@ use truelayer_rust::{
     apis::{
         auth::Credentials,
         payments::{
-            Beneficiary, CreatePaymentRequest, CreatePaymentUserRequest, Currency, PaymentMethod,
-            ProviderSelection,
+            Beneficiary, CreatePaymentRequest, CreatePaymentUserRequest, Currency,
+            PaymentMethodRequest, ProviderSelectionRequest,
         },
     },
     client::Environment,
@@ -68,8 +68,8 @@ async fn run() -> anyhow::Result<()> {
         .create(&CreatePaymentRequest {
             amount_in_minor: 100,
             currency: Currency::Gbp,
-            payment_method: PaymentMethod::BankTransfer {
-                provider_selection: ProviderSelection::UserSelected {
+            payment_method: PaymentMethodRequest::BankTransfer {
+                provider_selection: ProviderSelectionRequest::UserSelected {
                     filter: None,
                     preferred_scheme_ids: None,
                 },
