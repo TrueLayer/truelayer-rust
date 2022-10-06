@@ -367,12 +367,19 @@ pub enum AuthorizationFlowNextAction {
         metadata: Option<RedirectActionMetadata>,
     },
     Consent {
-        subsequent_action_hint: String,
+        subsequent_action_hint: SubsequentAction,
     },
     Form {
         inputs: Vec<AdditionalInput>,
     },
     Wait,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SubsequentAction {
+    Redirect,
+    Form,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
