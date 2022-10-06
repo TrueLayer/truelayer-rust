@@ -284,10 +284,11 @@ mod tests {
             auth::Credentials,
             payments::{
                 AdditionalInputType, AuthorizationFlowNextAction, AuthorizationFlowResponseStatus,
-                Beneficiary, ConsentSupported, CountryCode, CreatePaymentUserRequest, Currency,
-                FailureStage, FormSupported, PaymentMethod, PaymentMethodRequest, PaymentStatus,
-                Provider, ProviderSelection, ProviderSelectionRequest, ProviderSelectionSupported,
-                RedirectSupported, SubmitProviderReturnParametersResponseResource, User,
+                Beneficiary, ConsentSupported, CountryCode, CreatePaymentStatus,
+                CreatePaymentUserRequest, Currency, FailureStage, FormSupported, PaymentMethod,
+                PaymentMethodRequest, PaymentStatus, Provider, ProviderSelection,
+                ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+                SubmitProviderReturnParametersResponseResource, User,
             },
         },
         authenticator::Authenticator,
@@ -362,7 +363,8 @@ mod tests {
                 "resource_token": "resource-token",
                 "user": {
                     "id": "user-id"
-                }
+                },
+                "status": "authorization_required"
             })))
             .expect(1)
             .mount(&mock_server)
@@ -393,6 +395,7 @@ mod tests {
         assert_eq!(res.id, "payment-id");
         assert_eq!(res.resource_token.expose_secret(), "resource-token");
         assert_eq!(res.user.id, "user-id");
+        assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired)
     }
 
     #[tokio::test]

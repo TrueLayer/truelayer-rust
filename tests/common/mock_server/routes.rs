@@ -89,7 +89,8 @@ pub(super) async fn create_payment(
         "resource_token": format!("resource-token-{}", id),
         "user": {
             "id": user.id
-        }
+        },
+        "status": "authorization_required"
     }))
 }
 

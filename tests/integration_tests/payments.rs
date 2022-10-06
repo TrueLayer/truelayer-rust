@@ -8,8 +8,8 @@ use truelayer_rust::{
         payments::{
             AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
             AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-            ConsentSupported, CreatePaymentRequest, CreatePaymentUserRequest, Currency,
-            FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
+            ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
+            Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
             ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
             StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
             SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
@@ -217,6 +217,7 @@ impl CreatePaymentScenario {
         assert!(!res.id.is_empty());
         assert!(!res.resource_token.expose_secret().is_empty());
         assert!(!res.user.id.is_empty());
+        assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired);
 
         // Fetch the same payment
         let payment = ctx
