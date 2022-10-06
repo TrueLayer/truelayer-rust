@@ -343,7 +343,10 @@ mod tests {
                 "payment_method": {
                     "type": "bank_transfer",
                     "provider_selection": {
-                        "type": "user_selected"
+                        "type": "user_selected",
+                        "preferred_scheme_ids": [
+                            "faster_payments_service"
+                        ]
                     },
                     "beneficiary": {
                         "type": "merchant_account",
@@ -370,7 +373,10 @@ mod tests {
                 amount_in_minor: 100,
                 currency: Currency::Gbp,
                 payment_method: PaymentMethodRequest::BankTransfer {
-                    provider_selection: ProviderSelectionRequest::UserSelected { filter: None },
+                    provider_selection: ProviderSelectionRequest::UserSelected {
+                        filter: None,
+                        preferred_scheme_ids: Some(vec!["faster_payments_service".to_string()]),
+                    },
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
                         account_holder_name: None,
@@ -737,6 +743,7 @@ mod tests {
             PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected {
                     filter: None,
+                    preferred_scheme_ids: None,
                     provider_id: None,
                     scheme_id: None
                 },

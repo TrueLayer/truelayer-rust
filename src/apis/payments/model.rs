@@ -31,6 +31,7 @@ pub enum PaymentMethodRequest {
 pub enum ProviderSelectionRequest {
     UserSelected {
         filter: Option<ProviderFilter>,
+        preferred_scheme_ids: Option<Vec<String>>,
     },
     Preselected {
         provider_id: String,
@@ -243,6 +244,7 @@ pub struct SettlementRisk {
 pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
+        preferred_scheme_ids: Option<Vec<String>>,
         provider_id: Option<String>,
         scheme_id: Option<String>,
     },
@@ -256,8 +258,12 @@ pub enum ProviderSelection {
 impl From<ProviderSelectionRequest> for ProviderSelection {
     fn from(provider_selection: ProviderSelectionRequest) -> Self {
         match provider_selection {
-            ProviderSelectionRequest::UserSelected { filter } => ProviderSelection::UserSelected {
+            ProviderSelectionRequest::UserSelected {
                 filter,
+                preferred_scheme_ids,
+            } => ProviderSelection::UserSelected {
+                filter,
+                preferred_scheme_ids,
                 provider_id: None,
                 scheme_id: None,
             },

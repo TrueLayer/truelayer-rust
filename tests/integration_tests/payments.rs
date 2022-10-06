@@ -53,7 +53,10 @@ async fn hpp_link_returns_200() {
             amount_in_minor: 1,
             currency: Currency::Gbp,
             payment_method: PaymentMethodRequest::BankTransfer {
-                provider_selection: ProviderSelectionRequest::UserSelected { filter: None },
+                provider_selection: ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    preferred_scheme_ids: None,
+                },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
@@ -140,7 +143,13 @@ impl CreatePaymentScenario {
 
         let provider_selection = match &self.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => {
-                ProviderSelectionRequest::UserSelected { filter: None }
+                ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    preferred_scheme_ids: match self.currency {
+                        Currency::Gbp => Some(vec!["faster_payments_service".into()]),
+                        Currency::Eur => Some(vec!["sepa_credit_transfer_instant".into()]),
+                    },
+                }
             }
             ScenarioProviderSelection::Preselected {
                 provider_id,
@@ -453,6 +462,13 @@ impl CreatePaymentScenario {
                     payment_id: res.id.clone()
                 }
             );
+        } else {
+            ctx.submit_provider_return_parameters(
+                provider_return_uri.query().unwrap_or(""),
+                provider_return_uri.fragment().unwrap_or(""),
+            )
+            .await
+            .unwrap()
         }
 
         // Wait for the payment to reach a terminal state
@@ -591,10 +607,10 @@ impl CreatePaymentScenario {
     ScenarioBeneficiary::ClosedLoop,
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Cancel,
-    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" },
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::Classic,
     false
-    ; "user selected provider canceled"
+    ; "user selected provider not authorized"
 )]
 #[test_case(
     Currency::Gbp,
@@ -641,10 +657,10 @@ impl CreatePaymentScenario {
     ScenarioBeneficiary::ClosedLoop,
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Cancel,
-    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" },
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::Classic,
     false
-    ; "preselected provider canceled"
+    ; "preselected provider not authorized"
 )]
 #[test_case(
     Currency::Gbp,
@@ -681,10 +697,10 @@ impl CreatePaymentScenario {
     ScenarioBeneficiary::ClosedLoop,
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Cancel,
-    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" },
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::DirectReturn,
     false
-    ; "user selected provider canceled direct return"
+    ; "user selected provider not authorized direct return"
 )]
 #[test_case(
     Currency::Gbp,
@@ -721,10 +737,10 @@ impl CreatePaymentScenario {
     ScenarioBeneficiary::ClosedLoop,
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Cancel,
-    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "canceled" },
+    ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::DirectReturn,
     false
-    ; "preselected provider canceled direct return"
+    ; "preselected provider not authorized direct return"
 )]
 #[test_case(
     Currency::Gbp,

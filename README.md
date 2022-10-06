@@ -8,6 +8,8 @@
 
 The official [TrueLayer](https://truelayer.com) Rust client provides convenient access to TrueLayer APIs from applications built with Rust.
 
+> :warning: **WARNING: This library is currently in alpha**: We do not recommend using this crate for production applications. We plan to create an initial release when the library has caught up with TrueLayer's payments API.
+
 ## Installation
 
 Add the latest version of the library to your project's `Cargo.toml`.

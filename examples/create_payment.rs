@@ -69,7 +69,10 @@ async fn run() -> anyhow::Result<()> {
             amount_in_minor: 100,
             currency: Currency::Gbp,
             payment_method: PaymentMethodRequest::BankTransfer {
-                provider_selection: ProviderSelectionRequest::UserSelected { filter: None },
+                provider_selection: ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    preferred_scheme_ids: None,
+                },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: merchant_account.id,
                     account_holder_name: None,

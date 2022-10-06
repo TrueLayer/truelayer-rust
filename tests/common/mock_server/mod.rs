@@ -356,7 +356,7 @@ impl TrueLayerMockServer {
             MockBankAction::Cancel => PaymentStatus::Failed {
                 failed_at: Utc::now(),
                 failure_stage: FailureStage::Authorizing,
-                failure_reason: "canceled".to_string(),
+                failure_reason: "not_authorized".to_string(),
                 authorization_flow: Some(next_auth_flow),
             },
         };
