@@ -196,6 +196,31 @@ impl PaymentsApi {
         Ok(res)
     }
 
+    /// Attempts to cancel a payment.
+    #[tracing::instrument(name = "Cancel", skip(self))]
+    pub async fn cancel(&self, payment_id: &str) -> Result<(), Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        self.inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/authorization-flow/actions/cancel",
+                        encode(payment_id)
+                    ))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     /// Gets the details of an existing payment.
     ///
     /// If there's no payment with the given id, `None` is returned.
@@ -702,6 +727,27 @@ mod tests {
                 metadata: None
             }
         );
+    }
+
+    #[tokio::test]
+    async fn cancel() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!(
+                "/payments/{}/authorization-flow/actions/cancel",
+                payment_id
+            )))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .respond_with(ResponseTemplate::new(202))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        api.cancel(payment_id).await.unwrap();
     }
 
     #[tokio::test]
