@@ -137,6 +137,7 @@
 //! ```
 
 #![deny(missing_debug_implementations)]
+#![warn(clippy::needless_pass_by_value)]
 #![forbid(unsafe_code)]
 
 pub mod apis;
