@@ -8,11 +8,12 @@ use truelayer_rust::{
         payments::{
             AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
             AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-            CreatePaymentRequest, CreatePaymentUserRequest, Currency, FailureStage, FormSupported,
-            PaymentMethod, PaymentStatus, ProviderSelection, ProviderSelectionSupported,
-            RedirectSupported, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-            SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
-            SubmitProviderReturnParametersResponseResource, SubmitProviderSelectionActionRequest,
+            CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest, Currency,
+            FailureStage, FormSupported, PaymentMethod, PaymentStatus, ProviderSelection,
+            ProviderSelectionSupported, RedirectSupported, StartAuthorizationFlowRequest,
+            StartAuthorizationFlowResponse, SubmitFormActionRequest,
+            SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
+            SubmitProviderSelectionActionRequest,
         },
         payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
     },
@@ -214,6 +215,7 @@ impl CreatePaymentScenario {
         assert!(!res.id.is_empty());
         assert!(!res.resource_token.expose_secret().is_empty());
         assert!(!res.user.id.is_empty());
+        assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired);
 
         // Fetch the same payment
         let payment = ctx
