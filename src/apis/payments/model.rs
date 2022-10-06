@@ -35,6 +35,19 @@ pub struct CreatePaymentResponse {
     pub id: String,
     pub resource_token: Token,
     pub user: CreatePaymentUserResponse,
+    #[serde(flatten)]
+    pub status: CreatePaymentStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum CreatePaymentStatus {
+    AuthorizationRequired,
+    Authorized,
+    Failed {
+        failure_stage: FailureStage,
+        failure_reason: String,
+    },
 }
 
 #[async_trait]
