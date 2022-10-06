@@ -8,7 +8,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
@@ -26,6 +26,21 @@ pub enum PaymentMethodRequest {
     },
 }
 
+impl From<PaymentMethod> for PaymentMethodRequest {
+    /// Builds a new payment method request configuration from an existing PaymentMethod
+    fn from(p: PaymentMethod) -> Self {
+        match p {
+            PaymentMethod::BankTransfer {
+                provider_selection,
+                beneficiary,
+            } => PaymentMethodRequest::BankTransfer {
+                provider_selection: provider_selection.into(),
+                beneficiary,
+            },
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProviderSelectionRequest {
@@ -40,7 +55,32 @@ pub enum ProviderSelectionRequest {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl From<ProviderSelection> for ProviderSelectionRequest {
+    /// Builds a new ProviderSelectionRequest configuration from an existing ProviderSelection
+    fn from(p: ProviderSelection) -> Self {
+        match p {
+            ProviderSelection::UserSelected {
+                filter,
+                preferred_scheme_ids,
+                ..
+            } => ProviderSelectionRequest::UserSelected {
+                filter,
+                preferred_scheme_ids,
+            },
+            ProviderSelection::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            } => ProviderSelectionRequest::Preselected {
+                provider_id,
+                scheme_id,
+                remitter,
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum CreatePaymentUserRequest {
     ExistingUser {
@@ -86,7 +126,7 @@ impl Pollable for CreatePaymentResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct CreatePaymentUserResponse {
     pub id: String,
 }
@@ -201,20 +241,6 @@ pub enum PaymentMethod {
     },
 }
 
-impl From<PaymentMethodRequest> for PaymentMethod {
-    fn from(payment_method: PaymentMethodRequest) -> Self {
-        match payment_method {
-            PaymentMethodRequest::BankTransfer {
-                provider_selection,
-                beneficiary,
-            } => PaymentMethod::BankTransfer {
-                provider_selection: provider_selection.into(),
-                beneficiary,
-            },
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Beneficiary {
@@ -266,31 +292,6 @@ pub enum ProviderSelection {
         scheme_id: String,
         remitter: Option<Remitter>,
     },
-}
-
-impl From<ProviderSelectionRequest> for ProviderSelection {
-    fn from(provider_selection: ProviderSelectionRequest) -> Self {
-        match provider_selection {
-            ProviderSelectionRequest::UserSelected {
-                filter,
-                preferred_scheme_ids,
-            } => ProviderSelection::UserSelected {
-                filter,
-                preferred_scheme_ids,
-                provider_id: None,
-                scheme_id: None,
-            },
-            ProviderSelectionRequest::Preselected {
-                provider_id,
-                scheme_id,
-                remitter,
-            } => ProviderSelection::Preselected {
-                provider_id,
-                scheme_id,
-                remitter,
-            },
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

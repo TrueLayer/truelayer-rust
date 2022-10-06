@@ -237,8 +237,8 @@ impl CreatePaymentScenario {
         assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
         assert_eq!(payment.user.phone, None);
         assert_eq!(
-            payment.payment_method,
-            create_payment_request.payment_method.into()
+            PaymentMethodRequest::from(payment.payment_method),
+            create_payment_request.payment_method
         );
         assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);
         assert_eq!(

@@ -16,9 +16,9 @@ use truelayer_rust::apis::{
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
         CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
-        Provider, ProviderSelection, StartAuthorizationFlowRequest, StartAuthorizationFlowResponse,
-        SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
-        SubmitProviderSelectionActionRequest, User,
+        Provider, ProviderSelection, ProviderSelectionRequest, StartAuthorizationFlowRequest,
+        StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest, User,
     },
     payouts::{CreatePayoutRequest, Payout, PayoutStatus},
 };
@@ -70,6 +70,35 @@ pub(super) async fn create_payment(
         },
     };
 
+    let payment_method = match create_payment_request.payment_method.clone() {
+        truelayer_rust::apis::payments::PaymentMethodRequest::BankTransfer {
+            provider_selection,
+            beneficiary,
+        } => PaymentMethod::BankTransfer {
+            provider_selection: match provider_selection {
+                ProviderSelectionRequest::UserSelected {
+                    filter,
+                    preferred_scheme_ids,
+                } => ProviderSelection::UserSelected {
+                    filter,
+                    preferred_scheme_ids,
+                    provider_id: None,
+                    scheme_id: None,
+                },
+                ProviderSelectionRequest::Preselected {
+                    provider_id,
+                    scheme_id,
+                    remitter,
+                } => ProviderSelection::Preselected {
+                    provider_id,
+                    scheme_id,
+                    remitter,
+                },
+            },
+            beneficiary,
+        },
+    };
+
     storage.write().unwrap().payments.insert(
         id.clone(),
         Payment {
@@ -77,7 +106,7 @@ pub(super) async fn create_payment(
             amount_in_minor: create_payment_request.amount_in_minor,
             currency: create_payment_request.currency.clone(),
             user: user.clone(),
-            payment_method: create_payment_request.payment_method.clone().into(),
+            payment_method,
             created_at: Utc::now(),
             status: PaymentStatus::AuthorizationRequired,
             metadata: create_payment_request.metadata.clone(),
