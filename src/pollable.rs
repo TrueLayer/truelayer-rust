@@ -136,6 +136,8 @@ mod private {
 
     impl Sealed for crate::apis::payments::Payment {}
     impl Sealed for crate::apis::payments::CreatePaymentResponse {}
+    impl Sealed for (&str, crate::apis::payments::Refund) {}
+    impl Sealed for (&str, crate::apis::payments::CreateRefundResponse) {}
     impl Sealed for crate::apis::payouts::Payout {}
     impl Sealed for crate::apis::payouts::CreatePayoutResponse {}
 

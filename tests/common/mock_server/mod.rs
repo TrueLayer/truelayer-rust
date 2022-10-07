@@ -16,8 +16,8 @@ use truelayer_rust::apis::{
     merchant_accounts::{MerchantAccount, SweepingSettings},
     payments::{
         AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, CountryCode, Currency, FailureStage, Payment, PaymentStatus,
-        ReleaseChannel,
+        AuthorizationFlowNextAction, Beneficiary, CountryCode, Currency, FailureStage, Payment,
+        PaymentMethod, PaymentSource, PaymentStatus, Refund, ReleaseChannel,
     },
     payments_providers::{capabilities, Capabilities, PaymentScheme, Provider},
     payouts::Payout,
@@ -42,7 +42,7 @@ struct MockServerConfiguration {
 
 #[derive(Clone, Default)]
 struct MockServerStorageInner {
-    payments: HashMap<String, Payment>,
+    payments: HashMap<String, (Payment, HashMap<String, Refund>)>,
     payouts: HashMap<String, Payout>,
     sweeping: HashMap<String, SweepingSettings>,
 }
@@ -215,6 +215,34 @@ impl TrueLayerMockServer {
                         .route(web::post().to(routes::submit_form)),
                 )
                 .service(
+                    web::resource("/payments/{id}/actions/cancel")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::cancel_payment)),
+                )
+                .service(
+                    web::resource("/payments/{id}/refunds")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::post().to(routes::create_refund))
+                        .route(web::get().to(routes::list_refunds)),
+                )
+                .service(
+                    web::resource("/payments/{payment_id}/refunds/{id}")
+                        .wrap(MiddlewareFn::new(middlewares::ensure_idempotency_key))
+                        .wrap(MiddlewareFn::new(middlewares::validate_signature(
+                            configuration.clone(),
+                            true,
+                        )))
+                        .route(web::get().to(routes::get_refund_by_id)),
+                )
+                .service(
                     web::resource("/payments-providers/{id}")
                         .route(web::get().to(routes::get_payments_provider_by_id)),
                 )
@@ -308,7 +336,7 @@ impl TrueLayerMockServer {
             .context("Missing payment id")?;
 
         let mut storage = self.storage.write().unwrap();
-        let payment = storage
+        let (payment, _) = storage
             .payments
             .get_mut(payment_id)
             .context("Payment not found")?;
@@ -336,11 +364,32 @@ impl TrueLayerMockServer {
 
         // Change payment status
         payment.status = match action {
-            MockBankAction::Execute => PaymentStatus::Executed {
-                executed_at: Utc::now(),
-                authorization_flow: Some(next_auth_flow),
-                settlement_risk: None,
-            },
+            MockBankAction::Execute => {
+                if let PaymentMethod::BankTransfer {
+                    beneficiary: Beneficiary::MerchantAccount { .. },
+                    ..
+                } = payment.payment_method
+                {
+                    PaymentStatus::Settled {
+                        payment_source: PaymentSource {
+                            id: "source-id".into(),
+                            user_id: None,
+                            account_identifiers: vec![],
+                            account_holder_name: None,
+                        },
+                        executed_at: Utc::now(),
+                        settled_at: Utc::now(),
+                        authorization_flow: Some(next_auth_flow),
+                        settlement_risk: None,
+                    }
+                } else {
+                    PaymentStatus::Executed {
+                        executed_at: Utc::now(),
+                        authorization_flow: Some(next_auth_flow),
+                        settlement_risk: None,
+                    }
+                }
+            }
             MockBankAction::RejectAuthorisation => PaymentStatus::Failed {
                 failed_at: Utc::now(),
                 failure_stage: FailureStage::Authorizing,

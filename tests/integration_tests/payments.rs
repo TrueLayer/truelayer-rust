@@ -1,27 +1,25 @@
-use crate::common::{retry, test_context::TestContext, MockBankAction};
+use crate::common::{test_context::TestContext, MockBankAction};
 use retry_policies::policies::ExponentialBackoff;
 use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
 use truelayer_rust::{
-    apis::{
-        merchant_accounts::ListPaymentSourcesRequest,
-        payments::{
-            AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
-            AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-            ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
-            Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
-            ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
-            StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
-            SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
-            SubmitProviderSelectionActionRequest,
-        },
-        payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
+    apis::payments::{
+        AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
+        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
+        ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
+        Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
+        ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
+        SubmitProviderSelectionActionRequest,
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
 };
 use url::Url;
 use uuid::Uuid;
+
+use super::helpers;
 
 static MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
 static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
@@ -134,7 +132,6 @@ struct CreatePaymentScenario {
     mock_bank_action: MockBankAction,
     expected_status: ScenarioExpectedStatus,
     redirect_flow: RedirectFlow,
-    make_closed_loop_payout: bool,
 }
 
 impl CreatePaymentScenario {
@@ -506,59 +503,6 @@ impl CreatePaymentScenario {
                 ));
             }
         }
-
-        // Test a closed loop payout for the payment we just created
-        if self.make_closed_loop_payout {
-            // Get the payment source for the user created by this payment
-            let payment_source = retry(Duration::from_secs(60), || async {
-                ctx.client
-                    .merchant_accounts
-                    .list_payment_sources(
-                        &ctx.merchant_account_gbp_id,
-                        &ListPaymentSourcesRequest {
-                            user_id: res.user.id.clone(),
-                        },
-                    )
-                    .await
-                    .unwrap()
-                    .first()
-                    .cloned()
-            })
-            .await
-            .expect("Payment source failed to appear");
-
-            // Create a payout against this payment source
-            let create_payout_response = ctx
-                .client
-                .payouts
-                .create(&CreatePayoutRequest {
-                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
-                    amount_in_minor: 1,
-                    currency: Currency::Gbp,
-                    beneficiary: PayoutBeneficiary::PaymentSource {
-                        user_id: res.user.id,
-                        payment_source_id: payment_source.id,
-                        reference: "rust-sdk-test".to_string(),
-                    },
-                })
-                .await
-                .unwrap();
-
-            // Wait until the payout is executed
-            let payout = create_payout_response
-                .poll_until_terminal_state(
-                    &ctx.client,
-                    PollOptions::default().with_retry_policy(
-                        ExponentialBackoff::builder()
-                            .build_with_total_retry_duration(Duration::from_secs(60)),
-                    ),
-                )
-                .await
-                .unwrap();
-
-            // Assert that it succeeded
-            assert!(matches!(payout.status, PayoutStatus::Executed { .. }));
-        }
     }
 }
 
@@ -569,8 +513,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "user selected provider successful authorization"
 )]
 #[test_case(
@@ -579,8 +522,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "user selected provider with additional inputs successful authorization"
 )]
 #[test_case(
@@ -589,8 +531,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "user selected provider reject authorization"
 )]
 #[test_case(
@@ -599,8 +540,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "user selected provider reject execution"
 )]
 #[test_case(
@@ -609,8 +549,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "user selected provider not authorized"
 )]
 #[test_case(
@@ -619,8 +558,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "preselected provider successful authorization"
 )]
 #[test_case(
@@ -629,8 +567,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.to_string(), scheme_id:  "sepa_credit_transfer".to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "preselected provider with additional inputs successful authorization"
 )]
 #[test_case(
@@ -639,8 +576,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "preselected provider reject authorization"
 )]
 #[test_case(
@@ -649,8 +585,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "preselected provider reject execution"
 )]
 #[test_case(
@@ -659,8 +594,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
-    RedirectFlow::Classic,
-    false
+    RedirectFlow::Classic
     ; "preselected provider not authorized"
 )]
 #[test_case(
@@ -669,8 +603,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "user selected provider successful authorization direct return"
 )]
 #[test_case(
@@ -679,8 +612,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "user selected provider reject authorization direct return"
 )]
 #[test_case(
@@ -689,8 +621,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "user selected provider reject execution direct return"
 )]
 #[test_case(
@@ -699,8 +630,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "user selected provider not authorized direct return"
 )]
 #[test_case(
@@ -709,8 +639,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "preselected provider successful authorization direct return"
 )]
 #[test_case(
@@ -719,8 +648,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "preselected provider reject authorization direct return"
 )]
 #[test_case(
@@ -729,8 +657,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "preselected provider reject execution direct return"
 )]
 #[test_case(
@@ -739,8 +666,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
-    RedirectFlow::DirectReturn,
-    false
+    RedirectFlow::DirectReturn
     ; "preselected provider not authorized direct return"
 )]
 #[test_case(
@@ -749,8 +675,7 @@ impl CreatePaymentScenario {
     ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
-    RedirectFlow::Classic,
-    true
+    RedirectFlow::Classic
     ; "closed loop payout"
 )]
 #[tokio::test]
@@ -761,7 +686,6 @@ async fn create_payment_scenarios(
     mock_bank_action: MockBankAction,
     expected_status: ScenarioExpectedStatus,
     redirect_flow: RedirectFlow,
-    make_closed_loop_payout: bool,
 ) {
     CreatePaymentScenario {
         currency,
@@ -770,8 +694,35 @@ async fn create_payment_scenarios(
         mock_bank_action,
         expected_status,
         redirect_flow,
-        make_closed_loop_payout,
     }
     .run()
     .await;
+}
+
+#[tokio::test]
+async fn cancel_payment() {
+    let ctx = TestContext::start().await;
+
+    // Create a closed-loop payment
+    let payment = helpers::create_closed_loop_payment(&ctx).await.unwrap();
+
+    assert!(matches!(
+        payment.status,
+        CreatePaymentStatus::AuthorizationRequired { .. }
+    ));
+
+    ctx.client.payments.cancel(&payment.id).await.unwrap();
+
+    let payment = ctx
+        .client
+        .payments
+        .get_by_id(&payment.id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(matches!(
+            payment.status, 
+            PaymentStatus::Failed { failure_reason, failure_stage, .. } 
+            if failure_reason == *"canceled" && failure_stage == FailureStage::AuthorizationRequired));
 }

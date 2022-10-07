@@ -597,6 +597,19 @@ pub struct CreateRefundResponse {
     pub id: String,
 }
 
+#[async_trait]
+impl Pollable for (&str, CreateRefundResponse) {
+    type Output = Refund;
+
+    async fn poll_once(&self, tl: &TrueLayerClient) -> Result<Self::Output, Error> {
+        tl.payments
+            .get_refund_by_id(self.0, &self.1.id)
+            .await
+            .transpose()
+            .unwrap_or_else(|| Err(Error::Other(anyhow!("Refund returned 404 while polling"))))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Refund {
     pub id: String,
@@ -607,6 +620,29 @@ pub struct Refund {
     pub metadata: Option<HashMap<String, String>>,
     #[serde(flatten)]
     pub status: RefundStatus,
+}
+
+#[async_trait]
+impl Pollable for (&str, Refund) {
+    type Output = Refund;
+
+    async fn poll_once(&self, tl: &TrueLayerClient) -> Result<Self::Output, Error> {
+        tl.payments
+            .get_refund_by_id(self.0, &self.1.id)
+            .await
+            .transpose()
+            .unwrap_or_else(|| Err(Error::Other(anyhow!("Refund returned 404 while polling"))))
+    }
+}
+
+impl IsInTerminalState for Refund {
+    /// A refund is considered to be in a terminal state if it is `Executed` or `Failed`.
+    fn is_in_terminal_state(&self) -> bool {
+        matches!(
+            self.status,
+            RefundStatus::Executed { .. } | RefundStatus::Failed { .. }
+        )
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

@@ -205,21 +205,25 @@ impl PaymentsApi {
         // Generate a new random idempotency-key for this request
         let idempotency_key = Uuid::new_v4();
 
-        self.inner
+        let res = self
+            .inner
             .client
             .post(
                 self.inner
                     .environment
                     .payments_url()
-                    .join(&format!(
-                        "/payments/{}/authorization-flow/actions/cancel",
-                        encode(payment_id)
-                    ))
+                    .join(&format!("/payments/{}/actions/cancel", encode(payment_id)))
                     .unwrap(),
             )
             .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .send()
-            .await?;
+            .await
+            .map_err(|e| {
+                eprintln!("{:?}", e);
+                e
+            })?;
+
+        eprintln!("{}", res.status());
 
         Ok(())
     }
@@ -838,10 +842,7 @@ mod tests {
         let payment_id = "payment-id";
 
         Mock::given(method("POST"))
-            .and(path(format!(
-                "/payments/{}/authorization-flow/actions/cancel",
-                payment_id
-            )))
+            .and(path(format!("/payments/{}/actions/cancel", payment_id)))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .respond_with(ResponseTemplate::new(202))
             .expect(1)
