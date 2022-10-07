@@ -584,3 +584,41 @@ pub struct SubmitProviderReturnParametersResponse {
 pub enum SubmitProviderReturnParametersResponseResource {
     Payment { payment_id: String },
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct CreateRefundRequest {
+    pub amount_in_minor: Option<u64>,
+    pub reference: String,
+    pub metadata: Option<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct CreateRefundResponse {
+    pub id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct Refund {
+    pub id: String,
+    pub amount_in_minor: u64,
+    pub currency: Currency,
+    pub reference: String,
+    pub created_at: DateTime<Utc>,
+    pub metadata: Option<HashMap<String, String>>,
+    #[serde(flatten)]
+    pub status: RefundStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RefundStatus {
+    Pending,
+    Authorized,
+    Executed {
+        executed_at: DateTime<Utc>,
+    },
+    Failed {
+        failed_at: DateTime<Utc>,
+        failure_reason: String,
+    },
+}

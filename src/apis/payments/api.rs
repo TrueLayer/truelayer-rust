@@ -14,10 +14,13 @@ use crate::{
     Error,
 };
 use reqwest::Url;
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use urlencoding::encode;
 use uuid::Uuid;
+
+use super::{CreateRefundRequest, CreateRefundResponse, Refund};
 
 /// TrueLayer payments APIs client.
 #[derive(Clone, Debug)]
@@ -299,6 +302,104 @@ impl PaymentsApi {
 
         Ok(res)
     }
+
+    /// Creates a new payment.
+    #[tracing::instrument(
+        name = "Create Refund",
+        skip(self, create_refund_request),
+        fields(
+            amount_in_minor = create_refund_request.amount_in_minor,
+        )
+    )]
+    pub async fn create_refund(
+        &self,
+        payment_id: &str,
+        create_refund_request: &CreateRefundRequest,
+    ) -> Result<Option<CreateRefundResponse>, Error> {
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/payments/{}/refunds", encode(payment_id)))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(create_refund_request)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
+    /// Gets the details of an existing refund.
+    ///
+    /// If there's no refund with the given id, `None` is returned.
+    #[tracing::instrument(name = "Get Refund by ID", skip(self))]
+    pub async fn get_refund_by_id(
+        &self,
+        payment_id: &str,
+        id: &str,
+    ) -> Result<Option<Refund>, Error> {
+        let res = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/refunds/{}",
+                        encode(payment_id),
+                        encode(id)
+                    ))
+                    .unwrap(),
+            )
+            .send()
+            .await
+            .map_err(Error::from);
+
+        // Return `None` if the server returned 404
+        let refund = match res {
+            Ok(body) => Some(body.json().await?),
+            Err(Error::ApiError(api_error)) if api_error.status == 404 => None,
+            Err(e) => return Err(e),
+        };
+
+        Ok(refund)
+    }
+
+    /// Gets the refunds of a payment.
+    #[tracing::instrument(name = "List Refunds", skip(self))]
+    pub async fn list_refunds(&self, payment_id: &str) -> Result<Vec<Refund>, Error> {
+        let res: ListResponse<_> = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/payments/{}/refunds", encode(payment_id)))
+                    .unwrap(),
+            )
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res.items)
+    }
+}
+
+#[derive(Deserialize)]
+struct ListResponse<T> {
+    pub items: Vec<T>,
 }
 
 #[cfg(test)]
