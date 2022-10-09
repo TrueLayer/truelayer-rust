@@ -14,13 +14,13 @@ use truelayer_rust::apis::{
         TransactionPayinStatus, TransactionType,
     },
     payments::{
+        refunds::{CreateRefundRequest, Refund, RefundStatus},
         AccountIdentifier, AdditionalInput, AdditionalInputDisplayText, AdditionalInputFormat,
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
-        CreatePaymentUserRequest, CreateRefundRequest, Currency, FailureStage, Payment,
-        PaymentMethod, PaymentSource, PaymentStatus, Provider, ProviderSelection,
-        ProviderSelectionRequest, Refund, StartAuthorizationFlowRequest,
-        StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        CreatePaymentUserRequest, Currency, FailureStage, Payment, PaymentMethod, PaymentSource,
+        PaymentStatus, Provider, ProviderSelection, ProviderSelectionRequest,
+        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
         SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest,
         SubsequentAction, User,
     },
@@ -539,7 +539,7 @@ pub(super) async fn create_refund(
             reference: request.reference.clone(),
             created_at: Utc::now(),
             metadata: request.metadata.clone(),
-            status: truelayer_rust::apis::payments::RefundStatus::Executed {
+            status: RefundStatus::Executed {
                 executed_at: Utc::now(),
             },
         },

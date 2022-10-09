@@ -2,6 +2,7 @@ use crate::{
     apis::{
         auth::Token,
         payments::{
+            refunds::{CreateRefundRequest, CreateRefundResponse, Refund},
             CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
             StartAuthorizationFlowResponse, SubmitConsentActionResponse, SubmitFormActionRequest,
             SubmitFormActionResponse, SubmitProviderReturnParametersRequest,
@@ -19,8 +20,6 @@ use serde_json::json;
 use std::sync::Arc;
 use urlencoding::encode;
 use uuid::Uuid;
-
-use super::{CreateRefundRequest, CreateRefundResponse, Refund};
 
 /// TrueLayer payments APIs client.
 #[derive(Clone, Debug)]
@@ -205,8 +204,7 @@ impl PaymentsApi {
         // Generate a new random idempotency-key for this request
         let idempotency_key = Uuid::new_v4();
 
-        let res = self
-            .inner
+        self.inner
             .client
             .post(
                 self.inner
@@ -215,15 +213,10 @@ impl PaymentsApi {
                     .join(&format!("/payments/{}/actions/cancel", encode(payment_id)))
                     .unwrap(),
             )
+            .json(&json!({}))
             .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .send()
-            .await
-            .map_err(|e| {
-                eprintln!("{:?}", e);
-                e
-            })?;
-
-        eprintln!("{}", res.status());
+            .await?;
 
         Ok(())
     }

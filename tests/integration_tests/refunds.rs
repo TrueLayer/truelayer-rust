@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use reqwest_retry::policies::ExponentialBackoff;
 use truelayer_rust::{
-    apis::payments::{CreateRefundRequest, PaymentStatus, RefundStatus},
+    apis::payments::{
+        refunds::{CreateRefundRequest, RefundStatus},
+        PaymentStatus,
+    },
     pollable::PollOptions,
     Pollable, PollableUntilTerminalState,
 };

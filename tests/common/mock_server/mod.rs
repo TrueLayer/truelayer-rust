@@ -15,9 +15,9 @@ use tokio::sync::oneshot;
 use truelayer_rust::apis::{
     merchant_accounts::{MerchantAccount, SweepingSettings},
     payments::{
-        AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
+        refunds::Refund, AccountIdentifier, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, Beneficiary, CountryCode, Currency, FailureStage, Payment,
-        PaymentMethod, PaymentSource, PaymentStatus, Refund, ReleaseChannel,
+        PaymentMethod, PaymentSource, PaymentStatus, ReleaseChannel,
     },
     payments_providers::{capabilities, Capabilities, PaymentScheme, Provider},
     payouts::Payout,
