@@ -47,7 +47,6 @@ async fn create_refund() {
             },
         )
         .await
-        .unwrap()
         .unwrap();
 
     // Get refund

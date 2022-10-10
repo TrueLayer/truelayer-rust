@@ -1,4 +1,7 @@
-use crate::common::{test_context::TestContext, MockBankAction};
+use crate::{
+    common::{test_context::TestContext, MockBankAction},
+    integration_tests::helpers,
+};
 use retry_policies::policies::ExponentialBackoff;
 use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
@@ -18,8 +21,6 @@ use truelayer_rust::{
 };
 use url::Url;
 use uuid::Uuid;
-
-use super::helpers;
 
 static MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
 static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
@@ -722,7 +723,7 @@ async fn cancel_payment() {
         .unwrap();
 
     assert!(matches!(
-            payment.status, 
-            PaymentStatus::Failed { failure_reason, failure_stage, .. } 
+            payment.status,
+            PaymentStatus::Failed { failure_reason, failure_stage, .. }
             if failure_reason == *"canceled" && failure_stage == FailureStage::AuthorizationRequired));
 }

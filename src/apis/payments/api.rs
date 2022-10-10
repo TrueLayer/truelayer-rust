@@ -312,7 +312,7 @@ impl PaymentsApi {
         &self,
         payment_id: &str,
         create_refund_request: &CreateRefundRequest,
-    ) -> Result<Option<CreateRefundResponse>, Error> {
+    ) -> Result<CreateRefundResponse, Error> {
         let idempotency_key = Uuid::new_v4();
 
         let res = self
@@ -994,7 +994,6 @@ mod tests {
                 },
             )
             .await
-            .unwrap()
             .unwrap();
 
         assert_eq!(res.id, refund_id);
