@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use crate::common::mock_server::{
     MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
     MOCK_PROVIDER_ID_REDIRECT, MOCK_REDIRECT_URI,
 };
 use actix_web::{web, HttpResponse};
-use chrono::Utc;
+use chrono::offset::Utc;
 use serde_json::json;
 use truelayer_rust::apis::{
     auth::Credentials,
@@ -12,12 +14,13 @@ use truelayer_rust::apis::{
         TransactionPayinStatus, TransactionType,
     },
     payments::{
+        refunds::{CreateRefundRequest, Refund, RefundStatus},
         AccountIdentifier, AdditionalInput, AdditionalInputDisplayText, AdditionalInputFormat,
         AdditionalInputRegex, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, CreatePaymentRequest,
-        CreatePaymentUserRequest, Currency, Payment, PaymentMethod, PaymentSource, PaymentStatus,
-        Provider, ProviderSelection, ProviderSelectionRequest, StartAuthorizationFlowRequest,
-        StartAuthorizationFlowResponse, SubmitFormActionRequest,
+        CreatePaymentUserRequest, Currency, FailureStage, Payment, PaymentMethod, PaymentSource,
+        PaymentStatus, Provider, ProviderSelection, ProviderSelectionRequest,
+        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
         SubmitProviderReturnParametersRequest, SubmitProviderSelectionActionRequest,
         SubsequentAction, User,
     },
@@ -102,16 +105,19 @@ pub(super) async fn create_payment(
 
     storage.write().unwrap().payments.insert(
         id.clone(),
-        Payment {
-            id: id.clone(),
-            amount_in_minor: create_payment_request.amount_in_minor,
-            currency: create_payment_request.currency.clone(),
-            user: user.clone(),
-            payment_method,
-            created_at: Utc::now(),
-            status: PaymentStatus::AuthorizationRequired,
-            metadata: create_payment_request.metadata.clone(),
-        },
+        (
+            Payment {
+                id: id.clone(),
+                amount_in_minor: create_payment_request.amount_in_minor,
+                currency: create_payment_request.currency.clone(),
+                user: user.clone(),
+                payment_method,
+                created_at: Utc::now(),
+                status: PaymentStatus::AuthorizationRequired,
+                metadata: create_payment_request.metadata.clone(),
+            },
+            HashMap::new(),
+        ),
     );
 
     HttpResponse::Created().json(json!({
@@ -133,7 +139,7 @@ pub(super) async fn get_payment_by_id(
 
     storage.read().unwrap().payments.get(&id).map_or_else(
         || HttpResponse::NotFound().finish(),
-        |payment| HttpResponse::Ok().json(payment),
+        |payment| HttpResponse::Ok().json(payment.clone().0),
     )
 }
 
@@ -148,7 +154,7 @@ pub(super) async fn start_authorization_flow(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.payments.get_mut(&id) {
+    let (payment, _) = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -224,7 +230,7 @@ pub(super) async fn submit_provider_selection(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.payments.get_mut(&id) {
+    let (payment, _) = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -354,7 +360,7 @@ pub(super) async fn submit_consent(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.payments.get_mut(&id) {
+    let (payment, _) = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -422,7 +428,7 @@ pub(super) async fn submit_form(
 
     // Extract the payment from its id
     let mut map = storage.write().unwrap();
-    let payment = match map.payments.get_mut(&id) {
+    let (payment, _) = match map.payments.get_mut(&id) {
         Some(payment) => payment,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -461,6 +467,30 @@ pub(super) async fn submit_form(
     }
 }
 
+/// POST /payments/{id}/actions/cancel
+pub(super) async fn cancel_payment(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let id = path.into_inner();
+
+    // Extract the payment from its id
+    let mut map = storage.write().unwrap();
+    let (payment, _) = match map.payments.get_mut(&id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    payment.status = PaymentStatus::Failed {
+        failed_at: Utc::now(),
+        failure_stage: FailureStage::AuthorizationRequired,
+        failure_reason: "canceled".into(),
+        authorization_flow: None,
+    };
+
+    HttpResponse::Accepted().finish()
+}
+
 /// GET /payments
 pub(super) async fn hpp_page() -> HttpResponse {
     // Intentionally empty. We don't need to do anything here.
@@ -483,6 +513,78 @@ pub(super) async fn get_payments_provider_by_id(
         Some(p) => HttpResponse::Ok().json(p),
         None => HttpResponse::NotFound().finish(),
     }
+}
+
+/// POST /payments/{id}/refunds
+pub(super) async fn create_refund(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+    request: web::Json<CreateRefundRequest>,
+) -> HttpResponse {
+    let payment_id = path.into_inner();
+
+    let mut map = storage.write().unwrap();
+    let (payment, refunds) = match map.payments.get_mut(&payment_id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    let refund_id = Uuid::new_v4().to_string();
+    refunds.insert(
+        refund_id.clone(),
+        Refund {
+            id: refund_id.clone(),
+            amount_in_minor: request.amount_in_minor.unwrap_or(payment.amount_in_minor),
+            currency: payment.currency.clone(),
+            reference: request.reference.clone(),
+            created_at: Utc::now(),
+            metadata: request.metadata.clone(),
+            status: RefundStatus::Executed {
+                executed_at: Utc::now(),
+            },
+        },
+    );
+
+    HttpResponse::Created().json(json!({
+        "id": refund_id,
+    }))
+}
+
+/// GET /payments/{id}/refunds/{id}
+pub(super) async fn get_refund_by_id(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<(String, String)>,
+) -> HttpResponse {
+    let (payment_id, refund_id) = path.into_inner();
+
+    let mut map = storage.write().unwrap();
+    let (_, refunds) = match map.payments.get_mut(&payment_id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    match refunds.get(&refund_id) {
+        Some(refund) => HttpResponse::Ok().json(refund),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+/// GET /payments/{id}/refunds
+pub(super) async fn list_refunds(
+    storage: web::Data<MockServerStorage>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let payment_id = path.into_inner();
+
+    let mut map = storage.write().unwrap();
+    let (_, refunds) = match map.payments.get_mut(&payment_id) {
+        Some(payment) => payment,
+        None => return HttpResponse::NotFound().finish(),
+    };
+
+    HttpResponse::Ok().json(json!({
+        "items": refunds.values().collect::<Vec<_>>()
+    }))
 }
 
 /// GET /merchant-accounts

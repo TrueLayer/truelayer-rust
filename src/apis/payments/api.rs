@@ -2,6 +2,7 @@ use crate::{
     apis::{
         auth::Token,
         payments::{
+            refunds::{CreateRefundRequest, CreateRefundResponse, Refund},
             CreatePaymentRequest, CreatePaymentResponse, Payment, StartAuthorizationFlowRequest,
             StartAuthorizationFlowResponse, SubmitConsentActionResponse, SubmitFormActionRequest,
             SubmitFormActionResponse, SubmitProviderReturnParametersRequest,
@@ -14,6 +15,7 @@ use crate::{
     Error,
 };
 use reqwest::Url;
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use urlencoding::encode;
@@ -196,6 +198,29 @@ impl PaymentsApi {
         Ok(res)
     }
 
+    /// Attempts to cancel a payment.
+    #[tracing::instrument(name = "Cancel", skip(self))]
+    pub async fn cancel(&self, payment_id: &str) -> Result<(), Error> {
+        // Generate a new random idempotency-key for this request
+        let idempotency_key = Uuid::new_v4();
+
+        self.inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/payments/{}/actions/cancel", encode(payment_id)))
+                    .unwrap(),
+            )
+            .json(&json!({}))
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     /// Gets the details of an existing payment.
     ///
     /// If there's no payment with the given id, `None` is returned.
@@ -274,6 +299,104 @@ impl PaymentsApi {
 
         Ok(res)
     }
+
+    /// Creates a refund for a payment.
+    #[tracing::instrument(
+        name = "Create Refund",
+        skip(self, create_refund_request),
+        fields(
+            amount_in_minor = create_refund_request.amount_in_minor,
+        )
+    )]
+    pub async fn create_refund(
+        &self,
+        payment_id: &str,
+        create_refund_request: &CreateRefundRequest,
+    ) -> Result<CreateRefundResponse, Error> {
+        let idempotency_key = Uuid::new_v4();
+
+        let res = self
+            .inner
+            .client
+            .post(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/payments/{}/refunds", encode(payment_id)))
+                    .unwrap(),
+            )
+            .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
+            .json(create_refund_request)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
+    }
+
+    /// Gets the details of an existing refund.
+    ///
+    /// If there's no refund with the given id for the given payment id, `None` is returned.
+    #[tracing::instrument(name = "Get Refund by ID", skip(self))]
+    pub async fn get_refund_by_id(
+        &self,
+        payment_id: &str,
+        id: &str,
+    ) -> Result<Option<Refund>, Error> {
+        let res = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!(
+                        "/payments/{}/refunds/{}",
+                        encode(payment_id),
+                        encode(id)
+                    ))
+                    .unwrap(),
+            )
+            .send()
+            .await
+            .map_err(Error::from);
+
+        // Return `None` if the server returned 404
+        let refund = match res {
+            Ok(body) => Some(body.json().await?),
+            Err(Error::ApiError(api_error)) if api_error.status == 404 => None,
+            Err(e) => return Err(e),
+        };
+
+        Ok(refund)
+    }
+
+    /// Gets the refunds of a payment.
+    #[tracing::instrument(name = "List Refunds", skip(self))]
+    pub async fn list_refunds(&self, payment_id: &str) -> Result<Vec<Refund>, Error> {
+        let res: ListResponse<_> = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/payments/{}/refunds", encode(payment_id)))
+                    .unwrap(),
+            )
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(res.items)
+    }
+}
+
+#[derive(Deserialize)]
+struct ListResponse<T> {
+    pub items: Vec<T>,
 }
 
 #[cfg(test)]
@@ -283,12 +406,12 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{
-                AdditionalInputType, AuthorizationFlowNextAction, AuthorizationFlowResponseStatus,
-                Beneficiary, ConsentSupported, CountryCode, CreatePaymentStatus,
-                CreatePaymentUserRequest, Currency, FailureStage, FormSupported, PaymentMethod,
-                PaymentMethodRequest, PaymentStatus, Provider, ProviderSelection,
-                ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
-                SubmitProviderReturnParametersResponseResource, User,
+                refunds::RefundStatus, AdditionalInputType, AuthorizationFlowNextAction,
+                AuthorizationFlowResponseStatus, Beneficiary, ConsentSupported, CountryCode,
+                CreatePaymentStatus, CreatePaymentUserRequest, Currency, FailureStage,
+                FormSupported, PaymentMethod, PaymentMethodRequest, PaymentStatus, Provider,
+                ProviderSelection, ProviderSelectionRequest, ProviderSelectionSupported,
+                RedirectSupported, SubmitProviderReturnParametersResponseResource, User,
             },
         },
         authenticator::Authenticator,
@@ -705,6 +828,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cancel() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!("/payments/{}/actions/cancel", payment_id)))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .respond_with(ResponseTemplate::new(202))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        api.cancel(payment_id).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn get_by_id_successful() {
         let (inner, mock_server) = mock_client_and_server().await;
         let api = PaymentsApi::new(Arc::new(inner));
@@ -820,6 +961,123 @@ mod tests {
                     payment_id: "payment-id".into()
                 }
             }
+        );
+    }
+
+    #[tokio::test]
+    async fn create_refund() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+        let refund_id = "refund-id";
+
+        Mock::given(method("POST"))
+            .and(path(format!("/payments/{}/refunds", payment_id)))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({
+                "amount_in_minor": 100,
+                "reference": "some-reference"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "id": refund_id })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .create_refund(
+                payment_id,
+                &CreateRefundRequest {
+                    amount_in_minor: Some(100),
+                    reference: "some-reference".into(),
+                    metadata: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.id, refund_id);
+    }
+
+    #[tokio::test]
+    async fn get_refund_by_id() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+        let refund_id = "refund-id";
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/payments/{}/refunds/{}",
+                payment_id, refund_id
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": refund_id,
+                "amount_in_minor": 100,
+                "status": "pending",
+                "currency": "GBP",
+                "reference": "some-ref",
+                "created_at": Utc::now(),
+
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .get_refund_by_id(payment_id, refund_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(res.id, refund_id);
+        assert_eq!(res.status, RefundStatus::Pending);
+        assert_eq!(res.amount_in_minor, 100);
+        assert_eq!(res.currency, Currency::Gbp);
+        assert_eq!(res.reference, "some-ref");
+    }
+
+    #[tokio::test]
+    async fn list_refunds() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        let payment_id = "payment-id";
+        let refund_id = "refund-id";
+        let now = Utc::now();
+
+        Mock::given(method("GET"))
+            .and(path(format!("/payments/{}/refunds", payment_id)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": [
+                    {
+                        "id": refund_id,
+                        "amount_in_minor": 100,
+                        "status": "pending",
+                        "currency": "GBP",
+                        "reference": "some-ref",
+                        "created_at": now,
+                    }
+                ]
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api.list_refunds(payment_id).await.unwrap();
+
+        assert_eq!(
+            res,
+            vec![Refund {
+                id: refund_id.into(),
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                reference: "some-ref".into(),
+                created_at: now,
+                metadata: None,
+                status: RefundStatus::Pending
+            }]
         );
     }
 }
