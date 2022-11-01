@@ -411,7 +411,8 @@ mod tests {
                 CreatePaymentStatus, CreatePaymentUserRequest, Currency, FailureStage,
                 FormSupported, PaymentMethod, PaymentMethodRequest, PaymentStatus, Provider,
                 ProviderSelection, ProviderSelectionRequest, ProviderSelectionSupported,
-                RedirectSupported, SubmitProviderReturnParametersResponseResource, User,
+                RedirectSupported, SchemeSelection, SubmitProviderReturnParametersResponseResource,
+                User,
             },
         },
         authenticator::Authenticator,
@@ -468,9 +469,10 @@ mod tests {
                     "type": "bank_transfer",
                     "provider_selection": {
                         "type": "user_selected",
-                        "preferred_scheme_ids": [
-                            "faster_payments_service"
-                        ]
+                        "scheme_selection": {
+                            "type": "instant_only",
+                            "allow_remitter_fee": true
+                        }
                     },
                     "beneficiary": {
                         "type": "merchant_account",
@@ -500,7 +502,9 @@ mod tests {
                 payment_method: PaymentMethodRequest::BankTransfer {
                     provider_selection: ProviderSelectionRequest::UserSelected {
                         filter: None,
-                        preferred_scheme_ids: Some(vec!["faster_payments_service".to_string()]),
+                        scheme_selection: Some(SchemeSelection::InstantOnly {
+                            allow_remitter_fee: Some(true),
+                        }),
                     },
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
@@ -887,7 +891,7 @@ mod tests {
             PaymentMethod::BankTransfer {
                 provider_selection: ProviderSelection::UserSelected {
                     filter: None,
-                    preferred_scheme_ids: None,
+                    scheme_selection: None,
                     provider_id: None,
                     scheme_id: None
                 },

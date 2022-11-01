@@ -46,7 +46,7 @@ impl From<PaymentMethod> for PaymentMethodRequest {
 pub enum ProviderSelectionRequest {
     UserSelected {
         filter: Option<ProviderFilter>,
-        preferred_scheme_ids: Option<Vec<String>>,
+        scheme_selection: Option<SchemeSelection>,
     },
     Preselected {
         provider_id: String,
@@ -61,11 +61,11 @@ impl From<ProviderSelection> for ProviderSelectionRequest {
         match p {
             ProviderSelection::UserSelected {
                 filter,
-                preferred_scheme_ids,
+                scheme_selection,
                 ..
             } => ProviderSelectionRequest::UserSelected {
                 filter,
-                preferred_scheme_ids,
+                scheme_selection,
             },
             ProviderSelection::Preselected {
                 provider_id,
@@ -283,7 +283,7 @@ pub struct SettlementRisk {
 pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
-        preferred_scheme_ids: Option<Vec<String>>,
+        scheme_selection: Option<SchemeSelection>,
         provider_id: Option<String>,
         scheme_id: Option<String>,
     },
@@ -292,6 +292,13 @@ pub enum ProviderSelection {
         scheme_id: String,
         remitter: Option<Remitter>,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SchemeSelection {
+    InstantOnly { allow_remitter_fee: Option<bool> },
+    InstantPreferred { allow_remitter_fee: Option<bool> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

@@ -71,7 +71,7 @@ async fn run() -> anyhow::Result<()> {
             payment_method: PaymentMethodRequest::BankTransfer {
                 provider_selection: ProviderSelectionRequest::UserSelected {
                     filter: None,
-                    preferred_scheme_ids: None,
+                    scheme_selection: None,
                 },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: merchant_account.id,
