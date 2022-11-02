@@ -82,10 +82,10 @@ pub(super) async fn create_payment(
             provider_selection: match provider_selection {
                 ProviderSelectionRequest::UserSelected {
                     filter,
-                    preferred_scheme_ids,
+                    scheme_selection,
                 } => ProviderSelection::UserSelected {
                     filter,
-                    preferred_scheme_ids,
+                    scheme_selection,
                     provider_id: None,
                     scheme_id: None,
                 },
