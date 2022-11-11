@@ -377,7 +377,6 @@ pub(super) async fn submit_consent(
             ProviderSelection::UserSelected { provider_id, .. } => provider_id.as_deref(),
             ProviderSelection::Preselected { provider_id, .. } => Some(provider_id.as_str()),
         },
-        _ => todo!(),
     };
 
     let next_action = match provider_id {

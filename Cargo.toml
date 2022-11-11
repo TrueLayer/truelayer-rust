@@ -25,7 +25,7 @@ urlencoding = "2.1"
 uuid = { version = "1.1", features = ["v4"] }
 
 [dev-dependencies]
-truelayer-rust = { path = ".", default-features = false }
+truelayer-rust = { path = ".", features = ["ignore-compat"] }
 
 actix-web = "4.0.1"
 config = "0.13"
@@ -40,6 +40,5 @@ url = "2.2"
 wiremock = "0.5"
 
 [features]
-default = ["compat"]
 acceptance-tests = []
-compat = []
+ignore-compat = []

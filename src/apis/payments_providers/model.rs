@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::apis::payments::CountryCode;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Provider {
     pub id: String,
     pub display_name: Option<String>,
@@ -14,6 +15,7 @@ pub struct Provider {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Capabilities {
     pub payments: capabilities::Payments,
 }
@@ -26,11 +28,13 @@ pub mod capabilities {
     use super::PaymentScheme;
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub struct Payments {
         pub bank_transfer: Option<BankTransfer>,
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub struct BankTransfer {
         pub release_channel: ReleaseChannel,
         pub schemes: Vec<PaymentScheme>,
@@ -38,6 +42,7 @@ pub mod capabilities {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct PaymentScheme {
     pub id: String,
 }

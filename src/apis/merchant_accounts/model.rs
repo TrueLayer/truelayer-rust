@@ -7,6 +7,7 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct MerchantAccount {
     pub id: String,
     pub currency: Currency,
@@ -17,7 +18,7 @@ pub struct MerchantAccount {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SetupSweepingRequest {
     pub max_amount_in_minor: u64,
     pub currency: Currency,
@@ -26,7 +27,7 @@ pub struct SetupSweepingRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum SweepingFrequency {
     Daily,
     Weekly,
@@ -34,6 +35,7 @@ pub enum SweepingFrequency {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SweepingSettings {
     pub max_amount_in_minor: u64,
     pub currency: Currency,
@@ -42,13 +44,13 @@ pub struct SweepingSettings {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ListPaymentSourcesRequest {
     pub user_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ListTransactionsRequest {
     #[serde(serialize_with = "serialize_timestamp")]
     pub from: DateTime<Utc>,
@@ -65,6 +67,7 @@ pub enum TransactionTypeFilter {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Transaction {
     pub id: String,
     pub currency: Currency,
@@ -75,7 +78,7 @@ pub struct Transaction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum TransactionType {
     MerchantAccountPayment {
         status: TransactionPayinStatus,
@@ -100,14 +103,14 @@ pub enum TransactionType {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum TransactionPayinStatus {
     Settled,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum TransactionPayoutStatus {
     Pending,
     Settled { settled_at: DateTime<Utc> },
@@ -115,7 +118,7 @@ pub enum TransactionPayoutStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(feature = "compat"), non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum TransactionPayoutContextCode {
     Withdrawal,
     ServicePayment,

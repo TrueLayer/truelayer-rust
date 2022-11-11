@@ -10,7 +10,7 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder, Eq, PartialEq)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct CreatePaymentRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
@@ -22,11 +22,13 @@ pub struct CreatePaymentRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum PaymentMethodRequest {
     BankTransfer(BankTransferRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct BankTransferRequest {
     pub provider_selection: ProviderSelectionRequest,
     pub beneficiary: Beneficiary,
@@ -49,12 +51,14 @@ impl From<PaymentMethod> for PaymentMethodRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum ProviderSelectionRequest {
     UserSelected(UserSelectedRequest),
     Preselected(PreselectedRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct UserSelectedRequest {
     #[builder(default)]
     pub filter: Option<ProviderFilter>,
@@ -63,6 +67,7 @@ pub struct UserSelectedRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct PreselectedRequest {
     pub provider_id: String,
     pub scheme_id: String,
@@ -103,11 +108,13 @@ pub enum CreatePaymentUserRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ExistingUser {
     pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct NewUser {
     pub name: Option<String>,
     #[builder(default)]
@@ -117,6 +124,7 @@ pub struct NewUser {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct CreatePaymentResponse {
     pub id: String,
     pub resource_token: Token,
@@ -127,6 +135,7 @@ pub struct CreatePaymentResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum CreatePaymentStatus {
     AuthorizationRequired,
     Authorized,
@@ -150,11 +159,13 @@ impl Pollable for CreatePaymentResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct CreatePaymentUserResponse {
     pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Payment {
     pub id: String,
     pub amount_in_minor: u64,
@@ -194,7 +205,7 @@ impl IsInTerminalState for Payment {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum PaymentStatus {
     AuthorizationRequired,
     Authorizing {
@@ -225,7 +236,7 @@ pub enum PaymentStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum Currency {
     Gbp,
     Eur,
@@ -242,7 +253,7 @@ impl Display for Currency {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum FailureStage {
     AuthorizationRequired,
     Authorizing,
@@ -250,6 +261,7 @@ pub enum FailureStage {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct PaymentSource {
     pub id: String,
     pub user_id: Option<String>,
@@ -260,7 +272,7 @@ pub struct PaymentSource {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum PaymentMethod {
     BankTransfer {
         provider_selection: ProviderSelection,
@@ -270,6 +282,7 @@ pub enum PaymentMethod {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum Beneficiary {
     MerchantAccount {
         merchant_account_id: String,
@@ -284,7 +297,7 @@ pub enum Beneficiary {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AccountIdentifier {
     SortCodeAccountNumber {
         sort_code: String,
@@ -302,12 +315,14 @@ pub enum AccountIdentifier {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SettlementRisk {
     pub category: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum ProviderSelection {
     UserSelected {
         filter: Option<ProviderFilter>,
@@ -323,14 +338,15 @@ pub enum ProviderSelection {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum SchemeSelection {
     InstantOnly { allow_remitter_fee: Option<bool> },
     InstantPreferred { allow_remitter_fee: Option<bool> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Remitter {
     pub account_holder_name: String,
     pub account_identifier: AccountIdentifier,
@@ -338,7 +354,7 @@ pub struct Remitter {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder, Default)]
 #[builder(default)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ProviderFilter {
     pub countries: Option<Vec<CountryCode>>,
     pub release_channel: Option<ReleaseChannel>,
@@ -349,7 +365,7 @@ pub struct ProviderFilter {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum CountryCode {
     DE,
     ES,
@@ -380,24 +396,27 @@ pub enum CustomerSegment {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ProviderFilterExcludes {
     pub provider_ids: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AuthorizationFlow {
     pub actions: Option<AuthorizationFlowActions>,
     pub configuration: Option<AuthorizationFlowConfiguration>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AuthorizationFlowActions {
     pub next: AuthorizationFlowNextAction,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AuthorizationFlowNextAction {
     ProviderSelection {
         providers: Vec<Provider>,
@@ -417,12 +436,14 @@ pub enum AuthorizationFlowNextAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum SubsequentAction {
     Redirect,
     Form,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct Provider {
     pub id: String,
     pub display_name: Option<String>,
@@ -434,13 +455,14 @@ pub struct Provider {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum RedirectActionMetadata {
     Provider(Provider),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AdditionalInput {
     Text {
         id: String,
@@ -475,6 +497,7 @@ pub enum AdditionalInput {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AdditionalInputDisplayText {
     pub key: String,
     pub default: String,
@@ -482,7 +505,7 @@ pub struct AdditionalInputDisplayText {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AdditionalInputFormat {
     AccountNumber,
     Alphabetical,
@@ -495,12 +518,14 @@ pub enum AdditionalInputFormat {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AdditionalInputRegex {
     pub regex: String,
     pub message: AdditionalInputDisplayText,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AdditionalInputOption {
     pub id: String,
     pub display_text: AdditionalInputDisplayText,
@@ -508,13 +533,14 @@ pub struct AdditionalInputOption {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AdditionalInputImage {
     Uri { uri: String },
     Base64 { data: String, media_type: String },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct AuthorizationFlowConfiguration {
     pub provider_selection: Option<ProviderSelectionSupported>,
     pub redirect: Option<RedirectSupported>,
@@ -523,28 +549,29 @@ pub struct AuthorizationFlowConfiguration {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ProviderSelectionSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct RedirectSupported {
     pub return_uri: String,
     pub direct_return_uri: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct ConsentSupported {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct FormSupported {
     pub input_types: Vec<AdditionalInputType>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AdditionalInputType {
     Text,
     Select,
@@ -552,6 +579,7 @@ pub enum AdditionalInputType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct User {
     pub id: String,
     pub name: Option<String>,
@@ -560,7 +588,7 @@ pub struct User {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct StartAuthorizationFlowRequest {
     #[builder(default)]
     pub provider_selection: Option<ProviderSelectionSupported>,
@@ -572,6 +600,7 @@ pub struct StartAuthorizationFlowRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct StartAuthorizationFlowResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
@@ -579,12 +608,13 @@ pub struct StartAuthorizationFlowResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitProviderSelectionActionRequest {
     pub provider_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitProviderSelectionActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
@@ -592,7 +622,7 @@ pub struct SubmitProviderSelectionActionResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitConsentActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
@@ -600,11 +630,13 @@ pub struct SubmitConsentActionResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitFormActionRequest {
     pub inputs: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitFormActionResponse {
     pub authorization_flow: Option<AuthorizationFlow>,
     #[serde(flatten)]
@@ -613,6 +645,7 @@ pub struct SubmitFormActionResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub enum AuthorizationFlowResponseStatus {
     Authorizing,
     Failed {
@@ -622,13 +655,14 @@ pub enum AuthorizationFlowResponseStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
-#[cfg_attr(feature = "compat", non_exhaustive)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitProviderReturnParametersRequest {
     pub query: String,
     pub fragment: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
 pub struct SubmitProviderReturnParametersResponse {
     pub resource: SubmitProviderReturnParametersResponseResource,
 }
@@ -645,13 +679,15 @@ pub mod refunds {
     use anyhow::anyhow;
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
+    use derive_builder::Builder;
     use serde::{Deserialize, Serialize};
 
     use crate::{pollable::IsInTerminalState, Error, Pollable, TrueLayerClient};
 
     use super::Currency;
 
-    #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Builder)]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub struct CreateRefundRequest {
         pub amount_in_minor: Option<u64>,
         pub reference: String,
@@ -659,6 +695,7 @@ pub mod refunds {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub struct CreateRefundResponse {
         pub id: String,
     }
@@ -677,6 +714,7 @@ pub mod refunds {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub struct Refund {
         pub id: String,
         pub amount_in_minor: u64,
@@ -713,6 +751,7 @@ pub mod refunds {
 
     #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
     #[serde(tag = "status", rename_all = "snake_case")]
+    #[cfg_attr(not(feature = "ignore-compat"), non_exhaustive)]
     pub enum RefundStatus {
         Pending,
         Authorized,
