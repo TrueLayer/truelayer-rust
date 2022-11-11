@@ -9,12 +9,12 @@ use truelayer_rust::{
     apis::payments::{
         AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
         AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, BankTransferRequestBuilder,
-        Beneficiary, CreatePaymentRequestBuilder, CreatePaymentStatus, CreatePaymentUserRequest,
-        Currency, FailureStage, FormSupportedBuilder, NewUser, PaymentMethodRequest, PaymentStatus,
-        PreselectedRequestBuilder, ProviderSelectionRequest, ProviderSelectionSupportedBuilder,
-        RedirectSupportedBuilder, SchemeSelection, StartAuthorizationFlowRequestBuilder,
-        StartAuthorizationFlowResponse, SubmitFormActionRequestBuilder,
-        SubmitProviderReturnParametersRequestBuilder,
+        Beneficiary, ConsentSupportedBuilder, CreatePaymentRequestBuilder, CreatePaymentStatus,
+        CreatePaymentUserRequest, Currency, FailureStage, FormSupportedBuilder, NewUser,
+        PaymentMethodRequest, PaymentStatus, PreselectedRequestBuilder, ProviderSelectionRequest,
+        ProviderSelectionSupportedBuilder, RedirectSupportedBuilder,
+        StartAuthorizationFlowRequestBuilder, StartAuthorizationFlowResponse,
+        SubmitFormActionRequestBuilder, SubmitProviderReturnParametersRequestBuilder,
         SubmitProviderReturnParametersResponseResource,
         SubmitProviderSelectionActionRequestBuilder, UserSelectedRequestBuilder,
     },
@@ -147,12 +147,7 @@ impl CreatePaymentScenario {
         let provider_selection = match &self.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => {
                 ProviderSelectionRequest::UserSelected(
-                    UserSelectedRequestBuilder::default()
-                        .scheme_selection(Some(SchemeSelection::InstantPreferred {
-                            allow_remitter_fee: Some(true),
-                        }))
-                        .build()
-                        .unwrap(),
+                    UserSelectedRequestBuilder::default().build().unwrap(),
                 )
             }
             ScenarioProviderSelection::Preselected {
@@ -257,41 +252,44 @@ impl CreatePaymentScenario {
         );
 
         // Start authorization flow
-        let start_authorization_flow_request = StartAuthorizationFlowRequestBuilder::default()
-            .provider_selection(Some(
-                ProviderSelectionSupportedBuilder::default()
-                    .build()
-                    .unwrap(),
-            ))
-            .redirect(Some(
-                RedirectSupportedBuilder::default()
-                    .return_uri(MOCK_RETURN_URI.to_string())
-                    .direct_return_uri(
-                        (self.redirect_flow == RedirectFlow::DirectReturn)
-                            .then(|| MOCK_RETURN_URI.to_string()),
-                    )
-                    .build()
-                    .unwrap(),
-            ))
-            .form(Some(
-                FormSupportedBuilder::default()
-                    .input_types(vec![
-                        AdditionalInputType::Text,
-                        AdditionalInputType::Select,
-                        AdditionalInputType::TextWithImage,
-                    ])
-                    .build()
-                    .unwrap(),
-            ))
-            .build()
-            .unwrap();
         let StartAuthorizationFlowResponse {
             mut authorization_flow,
             mut status,
         } = ctx
             .client
             .payments
-            .start_authorization_flow(&res.id, &start_authorization_flow_request)
+            .start_authorization_flow(
+                &res.id,
+                &StartAuthorizationFlowRequestBuilder::default()
+                    .provider_selection(Some(
+                        ProviderSelectionSupportedBuilder::default()
+                            .build()
+                            .unwrap(),
+                    ))
+                    .redirect(Some(
+                        RedirectSupportedBuilder::default()
+                            .return_uri(MOCK_RETURN_URI.to_string())
+                            .direct_return_uri(
+                                (self.redirect_flow == RedirectFlow::DirectReturn)
+                                    .then(|| MOCK_RETURN_URI.to_string()),
+                            )
+                            .build()
+                            .unwrap(),
+                    ))
+                    .form(Some(
+                        FormSupportedBuilder::default()
+                            .input_types(vec![
+                                AdditionalInputType::Text,
+                                AdditionalInputType::Select,
+                                AdditionalInputType::TextWithImage,
+                            ])
+                            .build()
+                            .unwrap(),
+                    ))
+                    .consent(Some(ConsentSupportedBuilder::default().build().unwrap()))
+                    .build()
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
