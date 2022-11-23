@@ -96,7 +96,7 @@ mod tests {
             .await;
         Mock::given(path("/"))
             .respond_with(ResponseTemplate::new(200))
-            .expect(if expects_retry { 1 } else { 0 })
+            .expect(u64::from(expects_retry))
             .up_to_n_times(1)
             .mount(&mock_server)
             .await;
