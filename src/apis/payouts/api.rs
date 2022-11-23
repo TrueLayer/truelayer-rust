@@ -231,11 +231,14 @@ mod tests {
                 reference: "some-reference".to_string(),
             }
         );
-        assert_eq!(payout.created_at, Utc.ymd(2022, 4, 1).and_hms(0, 0, 0));
+        assert_eq!(
+            payout.created_at,
+            Utc.with_ymd_and_hms(2022, 4, 1, 0, 0, 0).unwrap()
+        );
         assert_eq!(
             payout.status,
             PayoutStatus::Executed {
-                executed_at: Utc.ymd(2022, 4, 1).and_hms(0, 0, 0)
+                executed_at: Utc.with_ymd_and_hms(2022, 4, 1, 0, 0, 0).unwrap()
             }
         );
     }
