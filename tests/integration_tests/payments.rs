@@ -22,8 +22,10 @@ use truelayer_rust::{
 use url::Url;
 use uuid::Uuid;
 
-static MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
-static MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
+static MOCK_PROVIDER_GB_REDIRECT: &str = "mock-payments-gb-redirect";
+static MOCK_PROVIDER_PL_REDIRECT: &str = "mock-payments-pl-redirect";
+static MOCK_PROVIDER_NO_REDIRECT: &str = "mock-payments-no-redirect";
+static MOCK_PROVIDER_DE_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
 static MOCK_RETURN_URI: &str = "http://localhost:3000/callback";
 
 #[tokio::test]
@@ -93,6 +95,12 @@ async fn hpp_link_returns_200() {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct ProviderScenario {
+    pub provider_selection: ScenarioProviderSelection,
+    pub additional_inputs: Option<HashMap<String, String>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum ScenarioProviderSelection {
     UserSelected {
         provider_id: String,
@@ -129,7 +137,7 @@ enum RedirectFlow {
 struct CreatePaymentScenario {
     currency: Currency,
     beneficiary: ScenarioBeneficiary,
-    provider_selection: ScenarioProviderSelection,
+    provider_scenario: ProviderScenario,
     mock_bank_action: MockBankAction,
     expected_status: ScenarioExpectedStatus,
     redirect_flow: RedirectFlow,
@@ -139,7 +147,7 @@ impl CreatePaymentScenario {
     async fn run(&self) {
         let ctx = TestContext::start().await;
 
-        let provider_selection = match &self.provider_selection {
+        let provider_selection = match &self.provider_scenario.provider_selection {
             ScenarioProviderSelection::UserSelected { .. } => {
                 ProviderSelectionRequest::UserSelected {
                     filter: None,
@@ -149,6 +157,7 @@ impl CreatePaymentScenario {
             ScenarioProviderSelection::Preselected {
                 provider_id,
                 scheme_id,
+                ..
             } => {
                 let provider = ctx
                     .client
@@ -270,7 +279,9 @@ impl CreatePaymentScenario {
             .await
             .unwrap();
 
-        if let ScenarioProviderSelection::UserSelected { provider_id } = &self.provider_selection {
+        if let ScenarioProviderSelection::UserSelected { provider_id, .. } =
+            &self.provider_scenario.provider_selection
+        {
             // Assert that the next action in the auth flow is ProviderSelection
             assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
             assert!(matches!(
@@ -339,11 +350,7 @@ impl CreatePaymentScenario {
         status = submit_consent_response.status;
         authorization_flow = submit_consent_response.authorization_flow;
 
-        if match &self.provider_selection {
-            ScenarioProviderSelection::Preselected { provider_id, .. } => provider_id,
-            ScenarioProviderSelection::UserSelected { provider_id } => provider_id,
-        } == MOCK_PROVIDER_ID_ADDITIONAL_INPUTS
-        {
+        if let Some(ref inputs) = self.provider_scenario.additional_inputs {
             // Assert that the next action in the auth flow is Form
             assert_eq!(status, AuthorizationFlowResponseStatus::Authorizing);
             assert!(matches!(
@@ -384,11 +391,7 @@ impl CreatePaymentScenario {
                 .submit_form_inputs(
                     &res.id,
                     &SubmitFormActionRequest {
-                        inputs: HashMap::from([
-                            ("psu-branch-code".to_string(), "123".to_string()),
-                            ("psu-account-number".to_string(), "1234567".to_string()),
-                            ("psu-sub-account".to_string(), "01".to_string()),
-                        ]),
+                        inputs: inputs.clone(),
                     },
                 )
                 .await
@@ -508,16 +511,64 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::Classic
     ; "user selected provider successful authorization"
 )]
 #[test_case(
+    Currency::Pln,
+    ScenarioBeneficiary::OpenLoop { account_identifier: AccountIdentifier::Nrb{ nrb: "12345678901234567890123456".to_string() } },
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_PL_REDIRECT.to_string(),
+        },
+        additional_inputs: Some(HashMap::from([
+            ("remitter-name".to_string(), "Rem Itter".to_string()),
+            ("remitter-nrb".to_string(), "12345678901234567890123456".to_string()),        
+        ]))
+    },
+    MockBankAction::Execute,
+    ScenarioExpectedStatus::ExecutedOrSettled,
+    RedirectFlow::Classic
+    ; "user selected PLN provider successful authorization"
+)]
+#[test_case(
+    Currency::Nok,
+    ScenarioBeneficiary::OpenLoop { account_identifier: AccountIdentifier::Bban{ bban: "NL39ABNA8234998285".to_string() } },
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_NO_REDIRECT.to_string(),
+        },
+        additional_inputs: Some(HashMap::from([
+            ("remitter-name".to_string(), "Rem Itter".to_string()),
+            ("remitter-bban".to_string(), "NL39ABNA8234998285".to_string()),
+        ]))
+    },
+    MockBankAction::Execute,
+    ScenarioExpectedStatus::ExecutedOrSettled,
+    RedirectFlow::Classic
+    ; "user selected NOK provider successful authorization"
+)]
+#[test_case(
     Currency::Eur,
     ScenarioBeneficiary::OpenLoop { account_identifier: AccountIdentifier::Iban{ iban: "NL39ABNA8234998285".to_string() } },
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_DE_ADDITIONAL_INPUTS.to_string(),
+        },
+        additional_inputs: Some(HashMap::from([
+            ("psu-branch-code".to_string(), "123".to_string()),
+            ("psu-account-number".to_string(), "1234567".to_string()),
+            ("psu-sub-account".to_string(), "01".to_string()),
+        ]))
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::Classic
@@ -526,7 +577,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
     RedirectFlow::Classic
@@ -535,7 +591,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
     RedirectFlow::Classic
@@ -544,7 +605,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::Classic
@@ -553,7 +619,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::Classic
@@ -562,7 +634,17 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Eur,
     ScenarioBeneficiary::OpenLoop { account_identifier: AccountIdentifier::Iban{ iban: "NL39ABNA8234998285".to_string() } },
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.to_string(), scheme_id:  "sepa_credit_transfer".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_DE_ADDITIONAL_INPUTS.to_string(),
+            scheme_id:  "sepa_credit_transfer".to_string(),
+        },
+        additional_inputs: Some(HashMap::from([
+            ("psu-branch-code".to_string(), "123".to_string()),
+            ("psu-account-number".to_string(), "1234567".to_string()),
+            ("psu-sub-account".to_string(), "01".to_string()),
+        ]))
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::Classic
@@ -571,7 +653,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
     RedirectFlow::Classic
@@ -580,7 +668,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
     RedirectFlow::Classic
@@ -589,7 +683,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::Classic
@@ -598,7 +698,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::DirectReturn
@@ -607,7 +712,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
     RedirectFlow::DirectReturn
@@ -616,7 +726,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
     RedirectFlow::DirectReturn
@@ -625,7 +740,12 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::UserSelected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::UserSelected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::DirectReturn
@@ -634,7 +754,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::DirectReturn
@@ -643,7 +769,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectAuthorisation,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "authorization_failed" },
     RedirectFlow::DirectReturn
@@ -652,7 +784,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::RejectExecution,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorized, failure_reason: "provider_rejected" },
     RedirectFlow::DirectReturn
@@ -661,7 +799,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Cancel,
     ScenarioExpectedStatus::Failed { failure_stage: FailureStage::Authorizing, failure_reason: "not_authorized" },
     RedirectFlow::DirectReturn
@@ -670,7 +814,13 @@ impl CreatePaymentScenario {
 #[test_case(
     Currency::Gbp,
     ScenarioBeneficiary::ClosedLoop,
-    ScenarioProviderSelection::Preselected{provider_id: MOCK_PROVIDER_ID_REDIRECT.to_string(), scheme_id: "faster_payments_service".to_string()},
+    ProviderScenario {
+        provider_selection: ScenarioProviderSelection::Preselected {
+            provider_id: MOCK_PROVIDER_GB_REDIRECT.to_string(),
+            scheme_id: "faster_payments_service".to_string(), 
+        },
+        additional_inputs: None,
+    },
     MockBankAction::Execute,
     ScenarioExpectedStatus::ExecutedOrSettled,
     RedirectFlow::Classic
@@ -680,7 +830,7 @@ impl CreatePaymentScenario {
 async fn create_payment_scenarios(
     currency: Currency,
     beneficiary: ScenarioBeneficiary,
-    provider_selection: ScenarioProviderSelection,
+    provider_scenario: ProviderScenario,
     mock_bank_action: MockBankAction,
     expected_status: ScenarioExpectedStatus,
     redirect_flow: RedirectFlow,
@@ -688,7 +838,7 @@ async fn create_payment_scenarios(
     CreatePaymentScenario {
         currency,
         beneficiary,
-        provider_selection,
+        provider_scenario,
         mock_bank_action,
         expected_status,
         redirect_flow,

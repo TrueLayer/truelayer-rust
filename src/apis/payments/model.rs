@@ -202,15 +202,19 @@ pub enum PaymentStatus {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Currency {
-    Gbp,
     Eur,
+    Gbp,
+    Nok,
+    Pln,
 }
 
 impl Display for Currency {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Currency::Gbp => write!(f, "GBP"),
             Currency::Eur => write!(f, "EUR"),
+            Currency::Gbp => write!(f, "GBP"),
+            Currency::Nok => write!(f, "NOK"),
+            Currency::Pln => write!(f, "PLN"),
         }
     }
 }
@@ -319,16 +323,22 @@ pub struct ProviderFilter {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {
+    AT,
+    BE,
     DE,
+    DK,
     ES,
+    FI,
     FR,
     GB,
     IE,
     IT,
     LT,
     NL,
+    NO,
     PL,
     PT,
+    RO,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
