@@ -904,10 +904,7 @@ mod tests {
         assert_eq!(
             payment.user,
             User {
-                id: "user-id".to_string(),
-                name: None,
-                email: None,
-                phone: None
+                id: "user-id".to_string()
             }
         );
         assert_eq!(payment.status, PaymentStatus::AuthorizationRequired);

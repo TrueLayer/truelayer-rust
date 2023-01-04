@@ -61,17 +61,11 @@ pub(super) async fn create_payment(
 ) -> HttpResponse {
     let id = Uuid::new_v4().to_string();
     let user = match create_payment_request.user.clone() {
-        CreatePaymentUserRequest::NewUser { name, email, phone } => User {
-            id: "payment-source-user-id".to_string(),
-            name,
-            email,
-            phone,
+        CreatePaymentUserRequest::NewUser { name: _, email: _, phone: _ } => User {
+            id: "payment-source-user-id".to_string()
         },
         CreatePaymentUserRequest::ExistingUser { id } => User {
-            id,
-            name: None,
-            email: None,
-            phone: None,
+            id
         },
     };
 

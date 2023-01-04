@@ -237,9 +237,6 @@ impl CreatePaymentScenario {
         assert_eq!(payment.amount_in_minor, 1);
         assert_eq!(payment.currency, self.currency);
         assert_eq!(payment.user.id, res.user.id);
-        assert_eq!(payment.user.name.as_deref(), Some("someone"));
-        assert_eq!(payment.user.email.as_deref(), Some("some.one@email.com"));
-        assert_eq!(payment.user.phone, None);
         assert_eq!(
             PaymentMethodRequest::from(payment.payment_method),
             create_payment_request.payment_method
