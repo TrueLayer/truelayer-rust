@@ -24,8 +24,10 @@ use truelayer_rust::apis::{
 };
 use uuid::Uuid;
 
-const MOCK_PROVIDER_ID_REDIRECT: &str = "mock-payments-gb-redirect";
-const MOCK_PROVIDER_ID_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
+const MOCK_PROVIDER_GB_REDIRECT: &str = "mock-payments-gb-redirect";
+const MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS: &str = "mock-payments-pl-redirect";
+const MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS: &str = "mock-payments-no-redirect";
+const MOCK_PROVIDER_DE_ADDITIONAL_INPUTS: &str = "mock-payments-de-redirect-additional-input-text";
 const MOCK_REDIRECT_URI: &str = "https://mock.redirect.uri/";
 
 #[derive(Clone)]
@@ -106,7 +108,43 @@ impl TrueLayerMockServer {
             .collect(),
             payments_providers: vec![
                 Provider {
-                    id: MOCK_PROVIDER_ID_REDIRECT.into(),
+                    id: MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS.into(),
+                    display_name: Some("Mock PL Payments - Redirect Flow".into()),
+                    icon_uri: None,
+                    logo_uri: None,
+                    bg_color: None,
+                    country_code: Some(CountryCode::PL),
+                    capabilities: Capabilities {
+                        payments: capabilities::Payments {
+                            bank_transfer: Some(capabilities::BankTransfer {
+                                release_channel: ReleaseChannel::GeneralAvailability,
+                                schemes: vec![PaymentScheme {
+                                    id: "polish_domestic_standard".into(),
+                                }],
+                            }),
+                        },
+                    },
+                },
+                Provider {
+                    id: MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS.into(),
+                    display_name: Some("Mock NO Payments - Redirect Flow".into()),
+                    icon_uri: None,
+                    logo_uri: None,
+                    bg_color: None,
+                    country_code: Some(CountryCode::NO),
+                    capabilities: Capabilities {
+                        payments: capabilities::Payments {
+                            bank_transfer: Some(capabilities::BankTransfer {
+                                release_channel: ReleaseChannel::GeneralAvailability,
+                                schemes: vec![PaymentScheme {
+                                    id: "norwegian_domestic_credit_transfer".into(),
+                                }],
+                            }),
+                        },
+                    },
+                },
+                Provider {
+                    id: MOCK_PROVIDER_GB_REDIRECT.into(),
                     display_name: Some("Mock UK Payments - Redirect Flow".into()),
                     icon_uri: None,
                     logo_uri: None,
@@ -124,7 +162,7 @@ impl TrueLayerMockServer {
                     },
                 },
                 Provider {
-                    id: MOCK_PROVIDER_ID_ADDITIONAL_INPUTS.into(),
+                    id: MOCK_PROVIDER_DE_ADDITIONAL_INPUTS.into(),
                     display_name: Some(
                         "Mock German Payments - Redirect Flow with additional inputs".into(),
                     ),

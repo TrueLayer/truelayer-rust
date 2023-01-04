@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use crate::common::mock_server::{
-    MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_ID_ADDITIONAL_INPUTS,
-    MOCK_PROVIDER_ID_REDIRECT, MOCK_REDIRECT_URI,
+    MockServerConfiguration, MockServerStorage, MOCK_PROVIDER_DE_ADDITIONAL_INPUTS,
+    MOCK_PROVIDER_GB_REDIRECT, MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS,
+    MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS, MOCK_REDIRECT_URI,
 };
 use actix_web::{web, HttpResponse};
 use chrono::offset::Utc;
@@ -180,8 +181,10 @@ pub(super) async fn start_authorization_flow(
                     }
                     AuthorizationFlowNextAction::Consent {
                         subsequent_action_hint: match provider_id.as_str() {
-                            MOCK_PROVIDER_ID_REDIRECT => SubsequentAction::Redirect,
-                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => SubsequentAction::Form,
+                            MOCK_PROVIDER_GB_REDIRECT => SubsequentAction::Redirect,
+                            MOCK_PROVIDER_DE_ADDITIONAL_INPUTS
+                            | MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS
+                            | MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS => SubsequentAction::Form,
                             _ => return HttpResponse::BadRequest().finish(),
                         },
                     }
@@ -264,8 +267,10 @@ pub(super) async fn submit_provider_selection(
                 actions: Some(AuthorizationFlowActions {
                     next: AuthorizationFlowNextAction::Consent {
                         subsequent_action_hint: match body.provider_id.as_str() {
-                            MOCK_PROVIDER_ID_REDIRECT => SubsequentAction::Redirect,
-                            MOCK_PROVIDER_ID_ADDITIONAL_INPUTS => SubsequentAction::Form,
+                            MOCK_PROVIDER_GB_REDIRECT => SubsequentAction::Redirect,
+                            MOCK_PROVIDER_DE_ADDITIONAL_INPUTS
+                            | MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS
+                            | MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS => SubsequentAction::Form,
                             _ => return HttpResponse::BadRequest().finish(),
                         },
                     },
@@ -377,11 +382,13 @@ pub(super) async fn submit_consent(
     };
 
     let next_action = match provider_id {
-        Some(MOCK_PROVIDER_ID_REDIRECT) => AuthorizationFlowNextAction::Redirect {
+        Some(MOCK_PROVIDER_GB_REDIRECT) => AuthorizationFlowNextAction::Redirect {
             uri: format!("{}{}", MOCK_REDIRECT_URI, payment.id),
             metadata: None,
         },
-        Some(MOCK_PROVIDER_ID_ADDITIONAL_INPUTS) => create_form_action(),
+        Some(MOCK_PROVIDER_DE_ADDITIONAL_INPUTS)
+        | Some(MOCK_PROVIDER_PL_REDIRECT_ADDITIONAL_INPUTS)
+        | Some(MOCK_PROVIDER_NO_REDIRECT_ADDITIONAL_INPUTS) => create_form_action(),
         _ => return HttpResponse::BadRequest().finish(),
     };
 
@@ -422,7 +429,7 @@ pub(super) async fn submit_form(
     let id = path.into_inner();
 
     // We are a very simple and humble mock
-    if body.inputs.len() != 3 {
+    if body.inputs.is_empty() {
         return HttpResponse::BadRequest().finish();
     }
 
