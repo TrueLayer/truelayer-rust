@@ -523,10 +523,7 @@ pub enum AdditionalInputType {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct User {
-    pub id: String,
-    pub name: Option<String>,
-    pub email: Option<String>,
-    pub phone: Option<String>,
+    pub id: String
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
