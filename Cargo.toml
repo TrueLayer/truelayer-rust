@@ -30,7 +30,7 @@ dialoguer = "0.10.0"
 futures = "0.3"
 openssl = "0.10"
 rand = "0.8.5"
-test-case = "2.0.0"
+test-case = "3.0.0"
 tokio = { version = "1", features = [ "rt-multi-thread", "macros", "sync" ] }
 tracing-subscriber = "0.3"
 url = "2.2"
