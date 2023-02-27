@@ -76,6 +76,8 @@ async fn run() -> anyhow::Result<()> {
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: merchant_account.id,
                     account_holder_name: None,
+                    reference: None,
+                    verification: None,
                 },
             },
             user: CreatePaymentUserRequest::NewUser {

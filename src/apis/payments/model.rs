@@ -251,6 +251,8 @@ pub enum Beneficiary {
     MerchantAccount {
         merchant_account_id: String,
         account_holder_name: Option<String>,
+        reference: Option<String>,
+        verification: Option<VerificationRequest>,
     },
     ExternalAccount {
         account_holder_name: String,
@@ -360,6 +362,15 @@ pub enum CustomerSegment {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ProviderFilterExcludes {
     pub provider_ids: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationRequest {
+    Automated {
+        remitter_name: Option<bool>,
+        remitter_date_of_birth: Option<bool>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

@@ -509,6 +509,8 @@ mod tests {
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
                         account_holder_name: None,
+                        reference: None,
+                        verification: None,
                     },
                 },
                 user: CreatePaymentUserRequest::ExistingUser {
@@ -897,7 +899,9 @@ mod tests {
                 },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: "merchant-account-id".to_string(),
-                    account_holder_name: None
+                    account_holder_name: None,
+                    reference: None,
+                    verification: None
                 }
             }
         );
