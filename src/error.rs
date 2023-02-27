@@ -68,11 +68,11 @@ impl fmt::Display for ApiError {
         )?;
 
         if let Some(ref detail) = self.detail {
-            write!(f, "\nAdditional details: {}", detail)?;
+            write!(f, "\nAdditional details: {detail}")?;
         }
 
         if let Some(ref trace_id) = self.trace_id {
-            write!(f, "\nTrace ID: {}", trace_id)?;
+            write!(f, "\nTrace ID: {trace_id}")?;
         }
 
         if !self.errors.is_empty() {

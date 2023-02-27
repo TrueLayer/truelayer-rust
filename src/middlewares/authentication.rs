@@ -84,7 +84,7 @@ mod tests {
             .and(path("/test"))
             .and(header(
                 "Authorization",
-                format!("Bearer {}", MOCK_ACCESS_TOKEN).as_str(), // Match the expected token
+                format!("Bearer {MOCK_ACCESS_TOKEN}").as_str(), // Match the expected token
             ))
             .respond_with(ResponseTemplate::new(200))
             .expect(1) // Expect exactly one call

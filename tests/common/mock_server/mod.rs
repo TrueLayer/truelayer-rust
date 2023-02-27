@@ -340,7 +340,7 @@ impl TrueLayerMockServer {
         });
 
         Self {
-            url: Url::parse(&format!("http://{}", addr)).unwrap(),
+            url: Url::parse(&format!("http://{addr}")).unwrap(),
             shutdown: Some(shutdown_sender),
             configuration: configuration_clone,
             storage: storage_clone,
@@ -449,8 +449,7 @@ impl TrueLayerMockServer {
         };
 
         Ok(Url::from_str(&format!(
-            "https://mock.return.uri/#{}",
-            payment_id
+            "https://mock.return.uri/#{payment_id}"
         ))?)
     }
 }

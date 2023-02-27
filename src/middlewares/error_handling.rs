@@ -172,7 +172,7 @@ mod tests {
 
         let api_error = match err {
             Error::ApiError(api_error) => api_error,
-            e => panic!("Unexpected error: {}", e),
+            e => panic!("Unexpected error: {e}"),
         };
 
         assert_eq!(api_error.status, 400);
@@ -221,7 +221,7 @@ mod tests {
 
         let api_error = match err {
             Error::ApiError(api_error) => api_error,
-            e => panic!("Unexpected error: {}", e),
+            e => panic!("Unexpected error: {e}"),
         };
 
         assert_eq!(api_error.status, 400);
@@ -268,7 +268,7 @@ mod tests {
 
         let api_error = match err {
             Error::ApiError(api_error) => api_error,
-            e => panic!("Unexpected error: {}", e),
+            e => panic!("Unexpected error: {e}"),
         };
 
         assert_eq!(api_error.status, 400);

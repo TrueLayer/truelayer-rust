@@ -110,7 +110,7 @@ mod tests {
 
         let provider_id = "some-known-payment-id";
         Mock::given(method("GET"))
-            .and(path(format!("/payments-providers/{}", provider_id)))
+            .and(path(format!("/payments-providers/{provider_id}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": provider_id,
                 "display_name": "Mock Payments Provider",

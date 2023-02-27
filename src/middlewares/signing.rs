@@ -123,8 +123,7 @@ mod tests {
             assert_eq!(
                 !signature.is_empty(),
                 expected_signature,
-                "Method: {}",
-                method
+                "Method: {method}",
             );
 
             // Verify the signature

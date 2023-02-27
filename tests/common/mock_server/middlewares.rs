@@ -202,9 +202,10 @@ where
 
         async move {
             match inner.call(&mut req).await {
-                Err(e) => Ok(
-                    req.into_response(HttpResponse::InternalServerError().body(format!("{:?}", e)))
-                ),
+                Err(e) => {
+                    Ok(req
+                        .into_response(HttpResponse::InternalServerError().body(format!("{e:?}"))))
+                }
                 Ok(_) => service.call(req).await,
             }
         }

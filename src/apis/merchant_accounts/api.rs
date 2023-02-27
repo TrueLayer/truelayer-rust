@@ -109,8 +109,7 @@ impl MerchantAccountsApi {
                     .environment
                     .payments_url()
                     .join(&format!(
-                        "/merchant-accounts/{}/sweeping",
-                        merchant_account_id
+                        "/merchant-accounts/{merchant_account_id}/sweeping"
                     ))
                     .unwrap(),
             )
@@ -135,8 +134,7 @@ impl MerchantAccountsApi {
                     .environment
                     .payments_url()
                     .join(&format!(
-                        "/merchant-accounts/{}/sweeping",
-                        merchant_account_id
+                        "/merchant-accounts/{merchant_account_id}/sweeping"
                     ))
                     .unwrap(),
             )
@@ -198,8 +196,7 @@ impl MerchantAccountsApi {
                     .environment
                     .payments_url()
                     .join(&format!(
-                        "/merchant-accounts/{}/transactions",
-                        merchant_account_id
+                        "/merchant-accounts/{merchant_account_id}/transactions"
                     ))
                     .unwrap(),
             )
@@ -233,8 +230,7 @@ impl MerchantAccountsApi {
                     .environment
                     .payments_url()
                     .join(&format!(
-                        "/merchant-accounts/{}/payment-sources",
-                        merchant_account_id
+                        "/merchant-accounts/{merchant_account_id}/payment-sources"
                     ))
                     .unwrap(),
             )
@@ -374,7 +370,7 @@ mod tests {
 
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("GET"))
-            .and(path(format!("/merchant-accounts/{}", merchant_account_id)))
+            .and(path(format!("/merchant-accounts/{merchant_account_id}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": merchant_account_id,
                 "currency": "GBP",
@@ -434,8 +430,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("POST"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .and(body_partial_json(json!({
                 "max_amount_in_minor": 100,
@@ -466,8 +461,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("POST"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .respond_with(ResponseTemplate::new(404))
             .expect(1)
@@ -496,8 +490,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("DELETE"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .respond_with(ResponseTemplate::new(204))
             .expect(1)
@@ -514,8 +507,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("DELETE"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .respond_with(ResponseTemplate::new(404))
             .expect(1)
@@ -535,8 +527,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "max_amount_in_minor": 100,
@@ -576,8 +567,7 @@ mod tests {
         let merchant_account_id = "merchant-account-id".to_string();
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/sweeping",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/sweeping"
             )))
             .respond_with(ResponseTemplate::new(404))
             .expect(1)
@@ -600,8 +590,7 @@ mod tests {
         let user_id = "user-id".to_string();
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/payment-sources",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/payment-sources"
             )))
             .and(query_param("user_id", &user_id))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -651,8 +640,7 @@ mod tests {
         let user_id = "user-id".to_string();
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/payment-sources",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/payment-sources"
             )))
             .and(query_param("user_id", &user_id))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -678,8 +666,7 @@ mod tests {
         let user_id = "user-id".to_string();
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/payment-sources",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/payment-sources"
             )))
             .and(query_param("user_id", &user_id))
             .respond_with(ResponseTemplate::new(404))
@@ -705,8 +692,7 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/transactions",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/transactions"
             )))
             .and(query_param("from", &now_str))
             .and(query_param("to", &now_str))
@@ -890,8 +876,7 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/transactions",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/transactions"
             )))
             .and(query_param("from", &now_str))
             .and(query_param("to", &now_str))
@@ -927,8 +912,7 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path(format!(
-                "/merchant-accounts/{}/transactions",
-                merchant_account_id
+                "/merchant-accounts/{merchant_account_id}/transactions",
             )))
             .and(query_param("from", &now_str))
             .and(query_param("to", &now_str))

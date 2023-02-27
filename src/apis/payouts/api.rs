@@ -189,7 +189,7 @@ mod tests {
 
         let payout_id = "some-known-payout-id";
         Mock::given(method("GET"))
-            .and(path(format!("/payouts/{}", payout_id)))
+            .and(path(format!("/payouts/{payout_id}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": payout_id,
                 "merchant_account_id": "some-merchant-account-id",

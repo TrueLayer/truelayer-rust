@@ -233,7 +233,7 @@ mod tests {
 
             ResponseTemplate::new(200).set_body_json(json!({
                 "token_type": "Bearer",
-                "access_token": format!("{}-{}", MOCK_ACCESS_TOKEN, i),
+                "access_token": format!("{MOCK_ACCESS_TOKEN}-{i}"),
                 "expires_in": 3600,
                 "refresh_token": if include_refresh_token { Some(MOCK_REFRESH_TOKEN) } else { None }
             }))
@@ -293,7 +293,7 @@ mod tests {
             );
             assert_eq!(
                 auth_result1.access_token.expose_secret(),
-                format!("{}-0", MOCK_ACCESS_TOKEN)
+                format!("{MOCK_ACCESS_TOKEN}-0")
             );
             assert!(auth_result1.access_token.expires_at().is_some());
             assert!(auth_result1.refresh_token.is_none());
@@ -327,7 +327,7 @@ mod tests {
             );
             assert_eq!(
                 auth_result4.access_token.expose_secret(),
-                format!("{}-1", MOCK_ACCESS_TOKEN)
+                format!("{MOCK_ACCESS_TOKEN}-1")
             );
             assert!(
                 auth_result1.access_token.expires_at().unwrap()
@@ -427,7 +427,7 @@ mod tests {
         for res in &results {
             assert_eq!(
                 res.access_token.expose_secret(),
-                format!("{}-0", MOCK_ACCESS_TOKEN)
+                format!("{MOCK_ACCESS_TOKEN}-0")
             );
         }
     }

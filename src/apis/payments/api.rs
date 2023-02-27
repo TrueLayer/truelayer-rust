@@ -535,7 +535,7 @@ mod tests {
         let payment_id = "payment-id";
 
         Mock::given(method("POST"))
-            .and(path(format!("/payments/{}/authorization-flow", payment_id)))
+            .and(path(format!("/payments/{payment_id}/authorization-flow" )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({
                 "provider_selection": {},
@@ -622,8 +622,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path(format!(
-                "/payments/{}/authorization-flow/actions/provider-selection",
-                payment_id
+                "/payments/{payment_id}/authorization-flow/actions/provider-selection"
             )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({ "provider_id": provider_id })))
@@ -678,8 +677,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path(format!(
-                "/payments/{}/authorization-flow/actions/provider-selection",
-                payment_id
+                "/payments/{payment_id}/authorization-flow/actions/provider-selection"
             )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({ "provider_id": provider_id })))
@@ -741,8 +739,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path(format!(
-                "/payments/{}/authorization-flow/actions/consent",
-                payment_id
+                "/payments/{payment_id}/authorization-flow/actions/consent"
             )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({})))
@@ -792,8 +789,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path(format!(
-                "/payments/{}/authorization-flow/actions/form",
-                payment_id
+                "/payments/{payment_id}/authorization-flow/actions/form"
             )))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({ "inputs": inputs })))
@@ -841,7 +837,7 @@ mod tests {
         let payment_id = "payment-id";
 
         Mock::given(method("POST"))
-            .and(path(format!("/payments/{}/actions/cancel", payment_id)))
+            .and(path(format!("/payments/{payment_id}/actions/cancel")))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .respond_with(ResponseTemplate::new(202))
             .expect(1)
@@ -858,7 +854,7 @@ mod tests {
 
         let payment_id = "some-known-payment-id";
         Mock::given(method("GET"))
-            .and(path(format!("/payments/{}", payment_id)))
+            .and(path(format!("/payments/{payment_id}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": payment_id,
                 "amount_in_minor": 100,
@@ -978,7 +974,7 @@ mod tests {
         let refund_id = "refund-id";
 
         Mock::given(method("POST"))
-            .and(path(format!("/payments/{}/refunds", payment_id)))
+            .and(path(format!("/payments/{payment_id}/refunds")))
             .and(header_exists(IDEMPOTENCY_KEY_HEADER))
             .and(body_partial_json(json!({
                 "amount_in_minor": 100,
@@ -1013,10 +1009,7 @@ mod tests {
         let refund_id = "refund-id";
 
         Mock::given(method("GET"))
-            .and(path(format!(
-                "/payments/{}/refunds/{}",
-                payment_id, refund_id
-            )))
+            .and(path(format!("/payments/{payment_id}/refunds/{refund_id}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "id": refund_id,
                 "amount_in_minor": 100,
@@ -1053,7 +1046,7 @@ mod tests {
         let now = Utc::now();
 
         Mock::given(method("GET"))
-            .and(path(format!("/payments/{}/refunds", payment_id)))
+            .and(path(format!("/payments/{payment_id}/refunds")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "items": [
                     {
