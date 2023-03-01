@@ -225,6 +225,7 @@ pub enum FailureStage {
     AuthorizationRequired,
     Authorizing,
     Authorized,
+    Executed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -365,7 +366,7 @@ pub struct ProviderFilterExcludes {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum VerificationRequest {
     Automated {
         remitter_name: Option<bool>,
