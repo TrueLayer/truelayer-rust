@@ -7,7 +7,7 @@ use crate::common::mock_server::{
 };
 use actix_web::{web, HttpResponse};
 use chrono::offset::Utc;
-use serde_json::json;
+use serde_json::{json, value::Value as JsonValue};
 use truelayer_rust::apis::{
     auth::Credentials,
     merchant_accounts::{
@@ -792,4 +792,9 @@ pub(super) async fn submit_provider_return_parameters(
             "payment_id": req.fragment
         }
     }))
+}
+
+/// POST /v1/test-signature
+pub(super) async fn test_signature(_req: web::Json<JsonValue>) -> HttpResponse {
+    HttpResponse::NoContent().finish()
 }

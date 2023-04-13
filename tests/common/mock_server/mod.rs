@@ -319,6 +319,10 @@ impl TrueLayerMockServer {
                     web::resource("/payments-provider-return")
                         .route(web::post().to(routes::submit_provider_return_parameters)),
                 )
+                .service(
+                    web::resource("/v1/test-signature")
+                        .route(web::post().to(routes::test_signature)),
+                )
         })
         .workers(1)
         .bind("127.0.0.1:0")

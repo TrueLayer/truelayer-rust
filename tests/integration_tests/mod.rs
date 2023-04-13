@@ -5,3 +5,4 @@ mod payments;
 mod payments_providers;
 mod payouts;
 mod refunds;
+mod stablecoin;
