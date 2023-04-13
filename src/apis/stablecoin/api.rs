@@ -20,8 +20,7 @@ impl StablecoinApi {
         // Generate a new random idempotency-key for this request
         let idempotency_key = Uuid::new_v4();
 
-        let res = self
-            .inner
+        self.inner
             .client
             .post(
                 self.inner
@@ -33,10 +32,8 @@ impl StablecoinApi {
             .header(IDEMPOTENCY_KEY_HEADER, idempotency_key.to_string())
             .json(&json!({"foo": "bar"}))
             .send()
-            .await?
-            .json()
             .await?;
 
-        Ok(res)
+        Ok(())
     }
 }
