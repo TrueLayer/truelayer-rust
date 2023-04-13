@@ -8,13 +8,14 @@ use crate::{
         payments::PaymentsApi,
         payments_providers::PaymentsProvidersApi,
         payouts::PayoutsApi,
+        stablecoin::StablecoinApi,
         TrueLayerClientInner,
     },
     authenticator::Authenticator,
     common::{
         DEFAULT_AUTH_URL, DEFAULT_HOSTED_PAYMENTS_PAGE_URL, DEFAULT_PAYMENTS_URL,
         DEFAULT_SANDBOX_AUTH_URL, DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL,
-        DEFAULT_SANDBOX_PAYMENTS_URL,
+        DEFAULT_SANDBOX_PAYMENTS_URL, DEFAULT_SANDBOX_STABLECOIN_URL,
     },
     middlewares::{
         authentication::AuthenticationMiddleware,
@@ -86,6 +87,8 @@ pub struct TrueLayerClient {
     pub payouts: PayoutsApi,
     /// Merchant Accounts APIs client.
     pub merchant_accounts: MerchantAccountsApi,
+    /// Stablecoin APIs client.
+    pub stablecoin: StablecoinApi,
 }
 
 impl TrueLayerClient {
@@ -166,7 +169,8 @@ impl TrueLayerClientBuilder {
             payments: PaymentsApi::new(inner.clone()),
             payments_providers: PaymentsProvidersApi::new(inner.clone()),
             payouts: PayoutsApi::new(inner.clone()),
-            merchant_accounts: MerchantAccountsApi::new(inner),
+            merchant_accounts: MerchantAccountsApi::new(inner.clone()),
+            stablecoin: StablecoinApi::new(inner),
         }
     }
 
@@ -242,6 +246,7 @@ pub enum Environment {
         auth_url: Url,
         payments_url: Url,
         hpp_url: Url,
+        stablecoin_url: Url,
     },
 }
 
@@ -252,6 +257,7 @@ impl Environment {
             auth_url: url.clone(),
             payments_url: url.clone(),
             hpp_url: url.clone(),
+            stablecoin_url: url.clone(),
         }
     }
 
@@ -279,6 +285,17 @@ impl Environment {
             Environment::Live => Url::parse(DEFAULT_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
             Environment::Sandbox => Url::parse(DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL).unwrap(),
             Environment::Custom { hpp_url, .. } => hpp_url.clone(),
+        }
+    }
+
+    /// Base URL for stablecoin-related requests.
+    pub fn stablecoin_url(&self) -> Url {
+        match self {
+            Environment::Live => {
+                unimplemented!("Invalid environment. Live environment is comming soon!")
+            }
+            Environment::Sandbox => Url::parse(DEFAULT_SANDBOX_STABLECOIN_URL).unwrap(),
+            Environment::Custom { stablecoin_url, .. } => stablecoin_url.clone(),
         }
     }
 }

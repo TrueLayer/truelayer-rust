@@ -5,6 +5,7 @@ pub static DEFAULT_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer.c
 pub static DEFAULT_SANDBOX_AUTH_URL: &str = "https://auth.truelayer-sandbox.com";
 pub static DEFAULT_SANDBOX_PAYMENTS_URL: &str = "https://api.truelayer-sandbox.com";
 pub static DEFAULT_SANDBOX_HOSTED_PAYMENTS_PAGE_URL: &str = "https://payment.truelayer-sandbox.com";
+pub static DEFAULT_SANDBOX_STABLECOIN_URL: &str = "https://stablecoin-api.truelayer-sandbox.com";
 
 // Header names
 pub static IDEMPOTENCY_KEY_HEADER: &str = "Idempotency-Key";

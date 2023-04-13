@@ -9,6 +9,7 @@ pub mod merchant_accounts;
 pub mod payments;
 pub mod payments_providers;
 pub mod payouts;
+pub mod stablecoin;
 
 pub(crate) struct TrueLayerClientInner {
     pub(crate) client: ClientWithMiddleware,
