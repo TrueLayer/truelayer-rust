@@ -794,6 +794,7 @@ pub(super) async fn submit_provider_return_parameters(
     }))
 }
 
+#[cfg(not(feature = "acceptance-tests"))]
 /// POST /v1/test-signature
 pub(super) async fn test_signature(_req: web::Json<JsonValue>) -> HttpResponse {
     HttpResponse::NoContent().finish()

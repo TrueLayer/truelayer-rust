@@ -5,4 +5,5 @@ mod payments;
 mod payments_providers;
 mod payouts;
 mod refunds;
+#[cfg(not(feature = "acceptance-tests"))]
 mod stablecoin;
