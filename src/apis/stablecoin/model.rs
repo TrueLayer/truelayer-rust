@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ListOnRampResponse {
-    pub items: Vec<()>,
+    pub items: Vec<OnRamp>,
     pub pagination: Pagination,
 }
 
