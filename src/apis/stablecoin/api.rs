@@ -3,6 +3,8 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use super::ListOnRampResponse;
+
 /// TrueLayer payments APIs client.
 #[derive(Clone, Debug)]
 pub struct StablecoinApi {
@@ -35,5 +37,30 @@ impl StablecoinApi {
             .await?;
 
         Ok(())
+    }
+
+    /// Gets a list of on-ramp transactions.
+    #[tracing::instrument(name = "List On-ramp Transactions", skip(self))]
+    pub async fn list_on_ramps(&self, limit: usize) -> Result<ListOnRampResponse, Error> {
+        let res = self
+            .inner
+            .client
+            .get(
+                self.inner
+                    .environment
+                    .payments_url()
+                    .join(&format!("/v1/on-ramp/transactions?limit={limit}"))
+                    .unwrap(),
+            )
+            .send()
+            .await
+            .map_err(Error::from);
+
+        let on_ramps = match res {
+            Ok(body) => body.json().await?,
+            Err(e) => return Err(e),
+        };
+
+        Ok(on_ramps)
     }
 }
