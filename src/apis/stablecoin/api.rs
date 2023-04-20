@@ -48,7 +48,7 @@ impl StablecoinApi {
             .get(
                 self.inner
                     .environment
-                    .payments_url()
+                    .stablecoin_url()
                     .join(&format!("/v1/on-ramp/transactions?limit={limit}"))
                     .unwrap(),
             )
