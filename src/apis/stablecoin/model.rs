@@ -31,6 +31,32 @@ pub struct OnRamp {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct ListOffRampResponse {
+    pub items: Vec<OffRamp>,
+    pub pagination: Pagination,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OffRamp {
+    pub id: String,
+    pub status: OffRampStatus,
+    pub status_detail: Option<String>,
+    pub fiat_currency: FiatCurrency,
+    pub blockchain_network: BlockchainNetwork,
+    pub stablecoin_token: StablecoinToken,
+    pub blockchain_source_address: String,
+    pub off_ramp_blockchain_address: String,
+    pub stablecoin_token_amount_in_minor: i64,
+    pub fiat_amount_in_minor: Option<i64>,
+    pub fiat_fee_in_minor: Option<i64>,
+    pub price_plan_id: Option<String>,
+    pub price_plan_name: Option<String>,
+    pub blockchain_transaction_hash: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OnRampStatus {
@@ -39,6 +65,17 @@ pub enum OnRampStatus {
     /// On-ramp transaction is completed.
     Completed,
     /// On-ramp transaction is failed.
+    Failed,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OffRampStatus {
+    /// Off-ramp transaction is pending.
+    Pending,
+    /// Off-ramp transaction is completed.
+    Completed,
+    /// Off-ramp transaction is failed.
     Failed,
 }
 
