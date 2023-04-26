@@ -4,7 +4,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug, Clone)]
 pub struct ListOnRampResponse {
     pub items: Vec<OnRamp>,
-    pub pagination: Pagination,
+    pub pagination: Option<Pagination>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -34,7 +34,7 @@ pub struct OnRamp {
 #[derive(Deserialize, Debug, Clone)]
 pub struct ListOffRampResponse {
     pub items: Vec<OffRamp>,
-    pub pagination: Pagination,
+    pub pagination: Option<Pagination>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
