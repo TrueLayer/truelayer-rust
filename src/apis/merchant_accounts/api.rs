@@ -745,7 +745,8 @@ mod tests {
                                 "sort_code": "sort-code",
                                 "account_number": "account-number"
                             },
-                            "account_holder_name": "Mr. Holder"
+                            "account_holder_name": "Mr. Holder",
+                            "reference": "TL 23-06-09 14:05"
                         }
                     },
                     {
@@ -837,7 +838,8 @@ mod tests {
                             account_identifier: Some(AccountIdentifier::SortCodeAccountNumber {
                                 sort_code: "sort-code".to_string(),
                                 account_number: "account-number".to_string()
-                            })
+                            }),
+                            reference: Some("TL 23-06-09 14:05".to_string())
                         }
                     }
                 },
