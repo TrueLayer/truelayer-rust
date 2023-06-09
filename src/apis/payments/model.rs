@@ -309,6 +309,7 @@ pub enum SchemeSelection {
 pub struct Remitter {
     pub account_holder_name: Option<String>,
     pub account_identifier: Option<AccountIdentifier>,
+    pub reference: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
