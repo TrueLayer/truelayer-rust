@@ -16,13 +16,13 @@ Add the latest version of the library to your project's `Cargo.toml`.
 
 ```toml
 [dependencies]
-truelayer-rust = "0.1"
+truelayer-rust = {git = "https://github.com/TrueLayer/truelayer-rust"}
 ```
 
 Alternatively, you can use [`cargo-edit`](https://crates.io/crates/cargo-edit) if you have it already installed:
 
 ```shell
-cargo add truelayer-rust
+cargo add truelayer-rust --git https://github.com/TrueLayer/truelayer-rust
 ```
 
 ## Documentation
