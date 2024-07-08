@@ -6,9 +6,9 @@
 [![Crates.io](https://img.shields.io/crates/v/truelayer-rust)](https://crates.io/crates/truelayer-rust)
 [![Docs.rs](https://img.shields.io/docsrs/truelayer-rust?label=docs.rs)](https://docs.rs/truelayer-rust/latest/truelayer-rust)
 
-The official [TrueLayer](https://truelayer.com) Rust client provides convenient access to TrueLayer APIs from applications built with Rust.
-
-> :warning: **WARNING: This library is currently in alpha**: We do not recommend using this crate for production applications. We plan to create an initial release when the library has caught up with TrueLayer's payments API.
+> [!CAUTION]
+> This project is not officially supported or actively maintained by TrueLayer. 
+> Therefore, we strongly advise against using it to integrate the TrueLayer Payments API. For a reliable and up-to-date integration, please refer to our public [API reference](https://docs.truelayer.com/reference/welcome-api-reference) or our officially supported API client libraries.
 
 ## Installation
 
