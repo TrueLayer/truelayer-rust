@@ -1,5 +1,5 @@
 use crate::apis::{
-    payments::{AccountIdentifier, Currency, PaymentSource, Remitter},
+    payments::{AccountIdentifier, Currency, ExternalPaymentRemitter, PaymentSource},
     payouts::PayoutBeneficiary,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -80,7 +80,7 @@ pub enum TransactionType {
     ExternalPayment {
         status: TransactionPayinStatus,
         settled_at: DateTime<Utc>,
-        remitter: Remitter,
+        remitter: ExternalPaymentRemitter,
     },
     Payout {
         #[serde(flatten)]

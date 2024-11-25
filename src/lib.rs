@@ -64,6 +64,8 @@
 //!             beneficiary: Beneficiary::MerchantAccount {
 //!                 merchant_account_id: "some-merchant-account-id".to_string(),
 //!                 account_holder_name: None,
+//!                 reference: None,
+//!                 statement_reference: None,
 //!             },
 //!         },
 //!         user: CreatePaymentUserRequest::NewUser {

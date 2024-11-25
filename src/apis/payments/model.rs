@@ -251,6 +251,8 @@ pub enum Beneficiary {
     MerchantAccount {
         merchant_account_id: String,
         account_holder_name: Option<String>,
+        reference: Option<String>,
+        statement_reference: Option<String>,
     },
     ExternalAccount {
         account_holder_name: String,
@@ -309,6 +311,13 @@ pub enum SchemeSelection {
 pub struct Remitter {
     pub account_holder_name: Option<String>,
     pub account_identifier: Option<AccountIdentifier>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct ExternalPaymentRemitter {
+    pub account_holder_name: Option<String>,
+    pub account_identifier: Option<AccountIdentifier>,
+    pub reference: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

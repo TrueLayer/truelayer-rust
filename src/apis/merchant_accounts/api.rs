@@ -263,7 +263,7 @@ mod tests {
                 SweepingFrequency, TransactionPayinStatus, TransactionPayoutContextCode,
                 TransactionPayoutStatus, TransactionType,
             },
-            payments::{AccountIdentifier, Currency, Remitter},
+            payments::{AccountIdentifier, Currency, ExternalPaymentRemitter},
             payouts::PayoutBeneficiary,
         },
         authenticator::Authenticator,
@@ -745,7 +745,8 @@ mod tests {
                                 "sort_code": "sort-code",
                                 "account_number": "account-number"
                             },
-                            "account_holder_name": "Mr. Holder"
+                            "account_holder_name": "Mr. Holder",
+                            "reference": "ext-payment-ref"
                         }
                     },
                     {
@@ -832,12 +833,13 @@ mod tests {
                     r#type: TransactionType::ExternalPayment {
                         status: TransactionPayinStatus::Settled,
                         settled_at: now,
-                        remitter: Remitter {
+                        remitter: ExternalPaymentRemitter {
                             account_holder_name: Some("Mr. Holder".into()),
                             account_identifier: Some(AccountIdentifier::SortCodeAccountNumber {
                                 sort_code: "sort-code".to_string(),
                                 account_number: "account-number".to_string()
-                            })
+                            }),
+                            reference: Some("ext-payment-ref".to_string())
                         }
                     }
                 },

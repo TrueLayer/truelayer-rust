@@ -476,7 +476,7 @@ mod tests {
                     },
                     "beneficiary": {
                         "type": "merchant_account",
-                        "merchant_account_id": "merchant-account-id"
+                        "merchant_account_id": "merchant-account-id",
                     },
                 },
                 "user": {
@@ -509,6 +509,8 @@ mod tests {
                     beneficiary: Beneficiary::MerchantAccount {
                         merchant_account_id: "merchant-account-id".to_string(),
                         account_holder_name: None,
+                        reference: None,
+                        statement_reference: None,
                     },
                 },
                 user: CreatePaymentUserRequest::ExistingUser {
@@ -897,7 +899,9 @@ mod tests {
                 },
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: "merchant-account-id".to_string(),
-                    account_holder_name: None
+                    account_holder_name: None,
+                    reference: None,
+                    statement_reference: None
                 }
             }
         );
