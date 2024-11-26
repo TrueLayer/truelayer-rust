@@ -315,9 +315,9 @@ pub struct Remitter {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ExternalPaymentRemitter {
-    pub account_holder_name: Option<String>,
-    pub account_identifier: Option<AccountIdentifier>,
-    pub reference: Option<String>,
+    pub account_holder_name: String,
+    pub account_identifier: AccountIdentifier,
+    pub reference: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
