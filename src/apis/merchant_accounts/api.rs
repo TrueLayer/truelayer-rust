@@ -263,7 +263,7 @@ mod tests {
                 SweepingFrequency, TransactionPayinStatus, TransactionPayoutContextCode,
                 TransactionPayoutStatus, TransactionType,
             },
-            payments::{AccountIdentifier, Currency, Remitter},
+            payments::{AccountIdentifier, Currency, ExternalPaymentRemitter},
             payouts::PayoutBeneficiary,
         },
         authenticator::Authenticator,
@@ -745,7 +745,8 @@ mod tests {
                                 "sort_code": "sort-code",
                                 "account_number": "account-number"
                             },
-                            "account_holder_name": "Mr. Holder"
+                            "account_holder_name": "Mr. Holder",
+                            "reference": "ext-payment-ref"
                         }
                     },
                     {
@@ -773,9 +774,9 @@ mod tests {
                         "currency": "GBP",
                         "amount_in_minor": 100,
                         "type": "payout",
-                        "status": "settled",
+                        "status": "executed",
                         "created_at": &now,
-                        "settled_at": &now,
+                        "executed_at": &now,
                         "beneficiary": {
                             "type": "payment_source",
                             "user_id": "payout-user-id",
@@ -832,12 +833,13 @@ mod tests {
                     r#type: TransactionType::ExternalPayment {
                         status: TransactionPayinStatus::Settled,
                         settled_at: now,
-                        remitter: Remitter {
-                            account_holder_name: Some("Mr. Holder".into()),
-                            account_identifier: Some(AccountIdentifier::SortCodeAccountNumber {
+                        remitter: ExternalPaymentRemitter {
+                            account_holder_name: "Mr. Holder".into(),
+                            account_identifier: AccountIdentifier::SortCodeAccountNumber {
                                 sort_code: "sort-code".to_string(),
                                 account_number: "account-number".to_string()
-                            })
+                            },
+                            reference: "ext-payment-ref".to_string()
                         }
                     }
                 },
@@ -865,7 +867,7 @@ mod tests {
                     currency: Currency::Gbp,
                     amount_in_minor: 100,
                     r#type: TransactionType::Payout {
-                        status: TransactionPayoutStatus::Settled { settled_at: now },
+                        status: TransactionPayoutStatus::Executed { executed_at: now },
                         created_at: now,
                         beneficiary: PayoutBeneficiary::PaymentSource {
                             user_id: "payout-user-id".to_string(),

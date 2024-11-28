@@ -34,6 +34,8 @@ pub async fn create_closed_loop_payment(
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
+                    reference: None,
+                    statement_reference: None,
                 },
             },
             user: CreatePaymentUserRequest::NewUser {

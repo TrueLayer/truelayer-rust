@@ -61,6 +61,8 @@ async fn hpp_link_returns_200() {
                 beneficiary: Beneficiary::MerchantAccount {
                     merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                     account_holder_name: None,
+                    reference: None,
+                    statement_reference: None,
                 },
             },
             user: CreatePaymentUserRequest::NewUser {
@@ -193,6 +195,8 @@ impl CreatePaymentScenario {
                     ScenarioBeneficiary::ClosedLoop => Beneficiary::MerchantAccount {
                         merchant_account_id: ctx.merchant_account_gbp_id.clone(),
                         account_holder_name: None,
+                        reference: Some("Reference".to_string()),
+                        statement_reference: Some("StReference".to_string()),
                     },
                     ScenarioBeneficiary::OpenLoop {
                         ref account_identifier,
