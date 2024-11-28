@@ -102,7 +102,7 @@ pub enum TransactionPayinStatus {
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum TransactionPayoutStatus {
     Pending,
-    Settled { settled_at: DateTime<Utc> },
+    Executed { executed_at: DateTime<Utc> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]

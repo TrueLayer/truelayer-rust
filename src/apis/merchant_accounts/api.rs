@@ -774,9 +774,9 @@ mod tests {
                         "currency": "GBP",
                         "amount_in_minor": 100,
                         "type": "payout",
-                        "status": "settled",
+                        "status": "executed",
                         "created_at": &now,
-                        "settled_at": &now,
+                        "executed_at": &now,
                         "beneficiary": {
                             "type": "payment_source",
                             "user_id": "payout-user-id",
@@ -867,7 +867,7 @@ mod tests {
                     currency: Currency::Gbp,
                     amount_in_minor: 100,
                     r#type: TransactionType::Payout {
-                        status: TransactionPayoutStatus::Settled { settled_at: now },
+                        status: TransactionPayoutStatus::Executed { executed_at: now },
                         created_at: now,
                         beneficiary: PayoutBeneficiary::PaymentSource {
                             user_id: "payout-user-id".to_string(),
