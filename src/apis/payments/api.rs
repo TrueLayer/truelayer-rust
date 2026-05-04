@@ -406,13 +406,13 @@ mod tests {
         apis::{
             auth::Credentials,
             payments::{
-                refunds::RefundStatus, AdditionalInputType, AuthorizationFlowNextAction,
+                refunds::RefundStatus, AdditionalInputType, Address, AuthorizationFlowNextAction,
                 AuthorizationFlowResponseStatus, Beneficiary, ConsentSupported, CountryCode,
                 CreatePaymentStatus, CreatePaymentUserRequest, Currency, FailureStage,
                 FormSupported, PaymentMethod, PaymentMethodRequest, PaymentStatus, Provider,
                 ProviderSelection, ProviderSelectionRequest, ProviderSelectionSupported,
-                RedirectSupported, SchemeSelection, SubmitProviderReturnParametersResponseResource,
-                User,
+                RedirectSupported, SchemeSelection, SubMerchants,
+                SubmitProviderReturnParametersResponseResource, UltimateCounterparty, User,
             },
         },
         authenticator::Authenticator,
@@ -517,6 +517,7 @@ mod tests {
                     id: "user-id".to_string(),
                 },
                 metadata: None,
+                sub_merchants: None,
             })
             .await
             .unwrap();
@@ -525,6 +526,86 @@ mod tests {
         assert_eq!(res.resource_token.expose_secret(), "resource-token");
         assert_eq!(res.user.id, "user-id");
         assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired)
+    }
+
+    #[tokio::test]
+    async fn create_with_sub_merchants() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PaymentsApi::new(Arc::new(inner));
+
+        Mock::given(method("POST"))
+            .and(path("/payments"))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({
+                "sub_merchants": {
+                    "ultimate_counterparty": {
+                        "type": "business_client",
+                        "id": "client-id",
+                        "trading_name": "Test Trading",
+                        "commercial_name": "Test Commercial",
+                        "mcc": "5411",
+                        "address": {
+                            "address_line1": "1 Test Street",
+                            "city": "London",
+                            "zip": "EC1A 1BB",
+                            "country_code": "GB"
+                        }
+                    }
+                }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "payment-id",
+                "resource_token": "resource-token",
+                "user": { "id": "user-id" },
+                "status": "authorization_required"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .create(&CreatePaymentRequest {
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                payment_method: PaymentMethodRequest::BankTransfer {
+                    provider_selection: ProviderSelectionRequest::UserSelected {
+                        filter: None,
+                        scheme_selection: None,
+                    },
+                    beneficiary: Beneficiary::MerchantAccount {
+                        merchant_account_id: "merchant-account-id".to_string(),
+                        account_holder_name: None,
+                        reference: None,
+                        statement_reference: None,
+                    },
+                },
+                user: CreatePaymentUserRequest::ExistingUser {
+                    id: "user-id".to_string(),
+                },
+                metadata: None,
+                sub_merchants: Some(SubMerchants {
+                    ultimate_counterparty: UltimateCounterparty::BusinessClient {
+                        id: "client-id".to_string(),
+                        trading_name: "Test Trading".to_string(),
+                        commercial_name: Some("Test Commercial".to_string()),
+                        url: None,
+                        mcc: Some("5411".to_string()),
+                        registration_number: None,
+                        address: Some(Box::new(Address {
+                            address_line1: "1 Test Street".to_string(),
+                            address_line2: None,
+                            city: "London".to_string(),
+                            state: None,
+                            zip: "EC1A 1BB".to_string(),
+                            country_code: "GB".to_string(),
+                        })),
+                    },
+                }),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(res.id, "payment-id");
     }
 
     #[tokio::test]

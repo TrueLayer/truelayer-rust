@@ -93,7 +93,7 @@ mod tests {
     use crate::{
         apis::{
             auth::Credentials,
-            payments::{AccountIdentifier, Currency},
+            payments::{AccountIdentifier, Currency, SubMerchants, UltimateCounterparty},
             payouts::{PayoutBeneficiary, PayoutStatus},
         },
         authenticator::Authenticator,
@@ -175,6 +175,68 @@ mod tests {
                     },
                     reference: "some-reference".to_string(),
                 },
+                sub_merchants: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(res.id, "payout-id");
+    }
+
+    #[tokio::test]
+    async fn create_with_sub_merchants() {
+        let (inner, mock_server) = mock_client_and_server().await;
+        let api = PayoutsApi::new(Arc::new(inner));
+
+        Mock::given(method("POST"))
+            .and(path("/payouts"))
+            .and(header_exists(IDEMPOTENCY_KEY_HEADER))
+            .and(body_partial_json(json!({
+                "merchant_account_id": "merchant-account-id",
+                "amount_in_minor": 100,
+                "currency": "GBP",
+                "beneficiary": {
+                    "type": "external_account",
+                    "account_holder_name": "Mr. Holder",
+                    "account_identifier": {
+                        "type": "iban",
+                        "iban": "some-iban"
+                    },
+                    "reference": "some-reference"
+                },
+                "sub_merchants": {
+                    "ultimate_counterparty": {
+                        "type": "business_division",
+                        "id": "division-id",
+                        "name": "Division Name"
+                    }
+                }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": "payout-id"
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = api
+            .create(&CreatePayoutRequest {
+                merchant_account_id: "merchant-account-id".to_string(),
+                amount_in_minor: 100,
+                currency: Currency::Gbp,
+                beneficiary: PayoutBeneficiary::ExternalAccount {
+                    account_holder_name: "Mr. Holder".to_string(),
+                    account_identifier: AccountIdentifier::Iban {
+                        iban: "some-iban".to_string(),
+                    },
+                    reference: "some-reference".to_string(),
+                },
+                sub_merchants: Some(SubMerchants {
+                    ultimate_counterparty: UltimateCounterparty::BusinessDivision {
+                        id: "division-id".to_string(),
+                        name: "Division Name".to_string(),
+                    },
+                }),
             })
             .await
             .unwrap();

@@ -143,9 +143,9 @@ async fn process_get_access_token(
 /// Returns `true` if the token is close to expiration (10 minutes before actual expiration)
 /// and should be refreshed. If this token does not expire, this function always returns `false`.
 fn should_refresh_token(token: &AccessToken) -> bool {
-    token.expires_at.map_or(false, |expires_at| {
-        now() >= expires_at - Duration::minutes(10)
-    })
+    token
+        .expires_at
+        .is_some_and(|expires_at| now() >= expires_at - Duration::minutes(10))
 }
 
 // Select an implementation of `now()` depending on whether we are testing or not

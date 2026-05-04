@@ -1,5 +1,5 @@
 use crate::{
-    apis::payments::{AccountIdentifier, Currency},
+    apis::payments::{AccountIdentifier, Currency, SubMerchants},
     pollable::IsInTerminalState,
     Error, Pollable, TrueLayerClient,
 };
@@ -14,6 +14,8 @@ pub struct CreatePayoutRequest {
     pub amount_in_minor: u64,
     pub currency: Currency,
     pub beneficiary: PayoutBeneficiary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_merchants: Option<SubMerchants>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

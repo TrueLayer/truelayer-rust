@@ -45,7 +45,7 @@ pub(super) async fn ensure_idempotency_key(req: &mut ServiceRequest) -> Result<(
             .get("Idempotency-Key")
             .map(|v| v.to_str())
             .transpose()?
-            .map_or(false, |v| !v.is_empty()),
+            .is_some_and(|v| !v.is_empty()),
         "Invalid or missing Idempotency Key"
     );
 

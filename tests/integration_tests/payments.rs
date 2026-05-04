@@ -7,14 +7,15 @@ use std::{collections::HashMap, time::Duration};
 use test_case::test_case;
 use truelayer_rust::{
     apis::payments::{
-        AccountIdentifier, AdditionalInputType, AuthorizationFlow, AuthorizationFlowActions,
-        AuthorizationFlowNextAction, AuthorizationFlowResponseStatus, Beneficiary,
-        ConsentSupported, CreatePaymentRequest, CreatePaymentStatus, CreatePaymentUserRequest,
-        Currency, FailureStage, FormSupported, PaymentMethodRequest, PaymentStatus,
-        ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
-        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubmitFormActionRequest,
-        SubmitProviderReturnParametersRequest, SubmitProviderReturnParametersResponseResource,
-        SubmitProviderSelectionActionRequest,
+        AccountIdentifier, AdditionalInputType, Address, AuthorizationFlow,
+        AuthorizationFlowActions, AuthorizationFlowNextAction, AuthorizationFlowResponseStatus,
+        Beneficiary, ConsentSupported, CreatePaymentRequest, CreatePaymentStatus,
+        CreatePaymentUserRequest, Currency, FailureStage, FormSupported, PaymentMethodRequest,
+        PaymentStatus, ProviderSelectionRequest, ProviderSelectionSupported, RedirectSupported,
+        StartAuthorizationFlowRequest, StartAuthorizationFlowResponse, SubMerchants,
+        SubmitFormActionRequest, SubmitProviderReturnParametersRequest,
+        SubmitProviderReturnParametersResponseResource, SubmitProviderSelectionActionRequest,
+        UltimateCounterparty,
     },
     pollable::PollOptions,
     PollableUntilTerminalState,
@@ -71,6 +72,7 @@ async fn hpp_link_returns_200() {
                 phone: None,
             },
             metadata: None,
+            sub_merchants: None,
         })
         .await
         .unwrap();
@@ -213,6 +215,7 @@ impl CreatePaymentScenario {
                 phone: None,
             },
             metadata: Some(HashMap::from([("some".into(), "metadata".into())])),
+            sub_merchants: None,
         };
         let res = ctx
             .client
@@ -857,7 +860,7 @@ async fn cancel_payment() {
 
     assert!(matches!(
         payment.status,
-        CreatePaymentStatus::AuthorizationRequired { .. }
+        CreatePaymentStatus::AuthorizationRequired
     ));
 
     ctx.client.payments.cancel(&payment.id).await.unwrap();
@@ -874,4 +877,100 @@ async fn cancel_payment() {
             payment.status,
             PaymentStatus::Failed { failure_reason, failure_stage, .. }
             if failure_reason == *"canceled" && failure_stage == FailureStage::AuthorizationRequired));
+}
+
+#[tokio::test]
+async fn create_payment_with_business_division_sub_merchants() {
+    let ctx = TestContext::start().await;
+
+    let res = ctx
+        .client
+        .payments
+        .create(&CreatePaymentRequest {
+            amount_in_minor: 1,
+            currency: Currency::Gbp,
+            payment_method: PaymentMethodRequest::BankTransfer {
+                provider_selection: ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    scheme_selection: None,
+                },
+                beneficiary: Beneficiary::MerchantAccount {
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                    account_holder_name: None,
+                    reference: None,
+                    statement_reference: None,
+                },
+            },
+            user: CreatePaymentUserRequest::NewUser {
+                name: Some("someone".to_string()),
+                email: Some("some.one@email.com".to_string()),
+                phone: None,
+            },
+            metadata: None,
+            sub_merchants: Some(SubMerchants {
+                ultimate_counterparty: UltimateCounterparty::BusinessDivision {
+                    id: "division-id".to_string(),
+                    name: "Test Division".to_string(),
+                },
+            }),
+        })
+        .await
+        .unwrap();
+
+    assert!(!res.id.is_empty());
+    assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired);
+}
+
+#[tokio::test]
+async fn create_payment_with_business_client_sub_merchants() {
+    let ctx = TestContext::start().await;
+
+    let res = ctx
+        .client
+        .payments
+        .create(&CreatePaymentRequest {
+            amount_in_minor: 1,
+            currency: Currency::Gbp,
+            payment_method: PaymentMethodRequest::BankTransfer {
+                provider_selection: ProviderSelectionRequest::UserSelected {
+                    filter: None,
+                    scheme_selection: None,
+                },
+                beneficiary: Beneficiary::MerchantAccount {
+                    merchant_account_id: ctx.merchant_account_gbp_id.clone(),
+                    account_holder_name: None,
+                    reference: None,
+                    statement_reference: None,
+                },
+            },
+            user: CreatePaymentUserRequest::NewUser {
+                name: Some("someone".to_string()),
+                email: Some("some.one@email.com".to_string()),
+                phone: None,
+            },
+            metadata: None,
+            sub_merchants: Some(SubMerchants {
+                ultimate_counterparty: UltimateCounterparty::BusinessClient {
+                    id: "client-id".to_string(),
+                    trading_name: "Test Trading".to_string(),
+                    commercial_name: Some("Test Commercial".to_string()),
+                    url: Some("https://example.com".to_string()),
+                    mcc: Some("5411".to_string()),
+                    registration_number: None,
+                    address: Some(Box::new(Address {
+                        address_line1: "1 Test Street".to_string(),
+                        address_line2: None,
+                        city: "London".to_string(),
+                        state: None,
+                        zip: "EC1A 1BB".to_string(),
+                        country_code: "GB".to_string(),
+                    })),
+                },
+            }),
+        })
+        .await
+        .unwrap();
+
+    assert!(!res.id.is_empty());
+    assert_eq!(res.status, CreatePaymentStatus::AuthorizationRequired);
 }

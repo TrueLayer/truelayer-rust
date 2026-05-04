@@ -86,6 +86,7 @@ async fn run() -> anyhow::Result<()> {
                 phone: None,
             },
             metadata: None,
+            sub_merchants: None,
         })
         .await?;
 

@@ -44,6 +44,7 @@ pub async fn create_closed_loop_payment(
                 phone: None,
             },
             metadata: None,
+            sub_merchants: None,
         })
         .await?;
     Ok(res)
