@@ -452,32 +452,23 @@ impl CreatePaymentScenario {
             .await
             .unwrap();
 
-        // If we are testing the direct return scenario, submit the return parameters
-        if self.redirect_flow == RedirectFlow::DirectReturn {
-            let submit_res = ctx
-                .client
-                .payments
-                .submit_provider_return_parameters(&SubmitProviderReturnParametersRequest {
-                    query: provider_return_uri.query().unwrap_or("").to_string(),
-                    fragment: provider_return_uri.fragment().unwrap_or("").to_string(),
-                })
-                .await
-                .unwrap();
-
-            assert_eq!(
-                submit_res.resource,
-                SubmitProviderReturnParametersResponseResource::Payment {
-                    payment_id: res.id.clone()
-                }
-            );
-        } else {
-            ctx.submit_provider_return_parameters(
-                provider_return_uri.query().unwrap_or(""),
-                provider_return_uri.fragment().unwrap_or(""),
-            )
+        // Submit the provider return parameters
+        let submit_res = ctx
+            .client
+            .payments
+            .submit_provider_return_parameters(&SubmitProviderReturnParametersRequest {
+                query: provider_return_uri.query().unwrap_or("").to_string(),
+                fragment: provider_return_uri.fragment().unwrap_or("").to_string(),
+            })
             .await
-            .unwrap()
-        }
+            .unwrap();
+
+        assert_eq!(
+            submit_res.resource,
+            SubmitProviderReturnParametersResponseResource::Payment {
+                payment_id: res.id.clone()
+            }
+        );
 
         // Wait for the payment to reach a terminal state
         let payment = payment
