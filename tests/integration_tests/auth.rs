@@ -1,5 +1,5 @@
 use crate::common::test_context::TestContext;
-use truelayer_rust::{apis::auth::Credentials, error::ApiError, Error, TrueLayerClient};
+use truelayer_rust::{apis::auth::Credentials, Error, TrueLayerClient};
 
 #[tokio::test]
 async fn get_access_token() {
@@ -36,5 +36,5 @@ async fn invalid_credentials() {
         .get_access_token()
         .await
         .expect_err("Expected error");
-    assert!(matches!(err, Error::ApiError(ApiError { title, .. }) if title == "invalid_client"));
+    assert!(matches!(err, Error::ApiError(ref e) if e.title == "invalid_client"));
 }

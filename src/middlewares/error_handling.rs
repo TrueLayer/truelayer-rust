@@ -28,7 +28,7 @@ impl Middleware for ErrorHandlingMiddleware {
             tracing::debug!("Failed HTTP request. Status code: {}", response.status());
 
             let api_error = api_error_from_response(response).await?;
-            return Err(Error::ApiError(api_error).into());
+            return Err(Error::from(api_error).into());
         }
 
         Ok(response)
