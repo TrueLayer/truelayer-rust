@@ -7,6 +7,7 @@ use truelayer_rust::{
         AuthorizationFlowNextAction, Beneficiary, ConsentSupported, CreatePaymentRequest,
         CreatePaymentResponse, CreatePaymentUserRequest, Currency, Payment, PaymentMethodRequest,
         PaymentStatus, ProviderSelectionRequest, RedirectSupported, StartAuthorizationFlowRequest,
+        SubmitProviderReturnParametersRequest,
     },
     pollable::PollOptions,
     Pollable,
@@ -44,6 +45,7 @@ pub async fn create_closed_loop_payment(
                 phone: None,
             },
             metadata: None,
+            sub_merchants: None,
         })
         .await?;
     Ok(res)
@@ -87,11 +89,13 @@ pub async fn create_and_authorize_closed_loop_payment(
         .complete_mock_bank_redirect_authorization(&redirect_uri, MockBankAction::Execute)
         .await?;
 
-    ctx.submit_provider_return_parameters(
-        provider_return_uri.query().unwrap_or(""),
-        provider_return_uri.fragment().unwrap_or(""),
-    )
-    .await?;
+    ctx.client
+        .payments
+        .submit_provider_return_parameters(&SubmitProviderReturnParametersRequest {
+            query: provider_return_uri.query().unwrap_or("").to_string(),
+            fragment: provider_return_uri.fragment().unwrap_or("").to_string(),
+        })
+        .await?;
 
     let payment = res
         .poll_until(

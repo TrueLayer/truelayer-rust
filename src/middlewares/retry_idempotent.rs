@@ -48,7 +48,7 @@ impl Middleware for RetryIdempotentMiddleware {
             Method::POST | Method::PATCH => req
                 .headers()
                 .get(IDEMPOTENCY_KEY_HEADER)
-                .map_or(false, |v| !v.is_empty()),
+                .is_some_and(|v| !v.is_empty()),
             _ => false,
         };
 

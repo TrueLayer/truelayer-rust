@@ -15,6 +15,48 @@ pub struct CreatePaymentRequest {
     pub payment_method: PaymentMethodRequest,
     pub user: CreatePaymentUserRequest,
     pub metadata: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_merchants: Option<SubMerchants>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct SubMerchants {
+    pub ultimate_counterparty: UltimateCounterparty,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum UltimateCounterparty {
+    BusinessDivision {
+        id: String,
+        name: String,
+    },
+    BusinessClient {
+        id: String,
+        trading_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        commercial_name: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mcc: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        registration_number: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        address: Option<Box<Address>>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct Address {
+    pub address_line1: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address_line2: Option<String>,
+    pub city: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    pub zip: String,
+    pub country_code: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]

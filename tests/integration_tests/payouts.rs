@@ -9,7 +9,7 @@ use reqwest_retry::policies::ExponentialBackoff;
 use truelayer_rust::{
     apis::{
         merchant_accounts::ListPaymentSourcesRequest,
-        payments::{AccountIdentifier, Currency},
+        payments::{AccountIdentifier, Currency, SubMerchants, UltimateCounterparty},
         payouts::{CreatePayoutRequest, PayoutBeneficiary, PayoutStatus},
     },
     pollable::PollOptions,
@@ -56,6 +56,7 @@ async fn closed_loop_payout() {
                 payment_source_id: payment_source.id,
                 reference: "rust-sdk-test".to_string(),
             },
+            sub_merchants: None,
         })
         .await
         .unwrap();
@@ -109,6 +110,12 @@ async fn open_loop_payout() {
                 account_identifier: account_identifier.clone(),
                 reference: "rust-sdk-test".to_string(),
             },
+            sub_merchants: Some(SubMerchants {
+                ultimate_counterparty: UltimateCounterparty::BusinessDivision {
+                    id: "division-id".to_string(),
+                    name: "Test Division".to_string(),
+                },
+            }),
         })
         .await
         .unwrap();

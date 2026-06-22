@@ -10,7 +10,7 @@ pub enum Error {
     HttpError(#[from] reqwest::Error),
     /// Error returned by a TrueLayer API endpoint.
     #[error("{0}")]
-    ApiError(#[from] ApiError),
+    ApiError(Box<ApiError>),
     /// Error building request signature.
     ///
     /// Read more about signing here: <https://docs.truelayer.com/docs/signing-your-requests>
@@ -19,6 +19,12 @@ pub enum Error {
     /// Catch-all variant for unexpected errors.
     #[error(transparent)]
     Other(anyhow::Error),
+}
+
+impl From<ApiError> for Error {
+    fn from(e: ApiError) -> Self {
+        Error::ApiError(Box::new(e))
+    }
 }
 
 impl From<reqwest_middleware::Error> for Error {

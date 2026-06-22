@@ -73,7 +73,8 @@
 //!             email: Some("some.one@email.com".to_string()),
 //!             phone: None,
 //!         },
-//!         metadata: None
+//!         metadata: None,
+//!         sub_merchants: None,
 //!     })
 //!     .await?;
 //!
