@@ -1,6 +1,6 @@
 [package]
 name = "truelayer-rust"
-version = "0.3.0-pre0"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
